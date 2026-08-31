@@ -45,12 +45,12 @@ Think of it as **Chris Titus Tech’s WinUtil for Linux**, but taken much furthe
 Open your Linux terminal and paste this single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maddox-h/linforge/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/CursedBlocks/linforge/main/install.sh | bash
 ```
 
 *Or with `wget`:*
 ```bash
-wget -qO- https://raw.githubusercontent.com/maddox-h/linforge/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/CursedBlocks/linforge/main/install.sh | bash
 ```
 
 ### What Happens When You Run This?

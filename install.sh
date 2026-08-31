@@ -87,14 +87,14 @@ else
     CLONED=0
 
     if command -v git >/dev/null 2>&1; then
-        if git clone --depth 1 https://github.com/maddox-h/linforge.git "$TMP_DIR" 2>/dev/null; then
+        if git clone --depth 1 https://github.com/CursedBlocks/linforge.git "$TMP_DIR" 2>/dev/null; then
             CLONED=1
         fi
     fi
 
     if [ $CLONED -eq 0 ]; then
         echo -e "${YELLOW}[!]${NC} Git unavailable or clone failed, extracting tarball..."
-        curl -fsSL https://github.com/maddox-h/linforge/archive/refs/heads/main.tar.gz | tar -xz -C "$TMP_DIR" --strip-components=1 2>/dev/null || true
+        curl -fsSL https://github.com/CursedBlocks/linforge/archive/refs/heads/main.tar.gz | tar -xz -C "$TMP_DIR" --strip-components=1 2>/dev/null || true
     fi
 
     if [ -d "$TMP_DIR/src" ]; then
