@@ -1,0 +1,129 @@
+{
+  "categories": [
+    { "id": "gaming", "name": "Gaming & Low Latency", "icon": "zap" },
+    { "id": "memory", "name": "Memory & Storage", "icon": "hard-drive" },
+    { "id": "kde", "name": "Kubuntu / KDE Plasma", "icon": "layout" },
+    { "id": "gnome", "name": "GNOME & Desktop", "icon": "grid" },
+    { "id": "privacy", "name": "Privacy & Telemetry", "icon": "eye-off" },
+    { "id": "network", "name": "Network & Security", "icon": "shield" }
+  ],
+  "tweaks": [
+    {
+      "id": "tweak_gaming_sysctl",
+      "name": "Kernel Sysctl Gaming & Memory Map Boost",
+      "category": "gaming",
+      "description": "Sets vm.max_map_count=2147483642 (prevents crashes in Starfield/Hogwarts Legacy/UE5), increases file descriptors (fs.file-max=2097152), and inotify limits for Proton/Wine.",
+      "risk": "safe",
+      "apply_script": "cat << 'EOF' > /etc/sysctl.d/99-linforge-gaming.conf\n# LinForge Gaming & Wine Memory Map Tweaks\nvm.max_map_count=2147483642\nfs.file-max=2097152\nfs.inotify.max_user_watches=524288\nfs.inotify.max_user_instances=8192\nvm.vfs_cache_pressure=50\nEOF\nsysctl --system",
+      "revert_script": "rm -f /etc/sysctl.d/99-linforge-gaming.conf && sysctl --system"
+    },
+    {
+      "id": "tweak_swappiness_10",
+      "name": "Optimize Swappiness for Desktop Responsiveness",
+      "category": "memory",
+      "description": "Lowers kernel swappiness from default 60 to 10. Keeps active applications and game textures in physical RAM instead of sluggish disk swapping.",
+      "risk": "safe",
+      "apply_script": "cat << 'EOF' > /etc/sysctl.d/99-linforge-swappiness.conf\nvm.swappiness=10\nEOF\nsysctl -w vm.swappiness=10",
+      "revert_script": "rm -f /etc/sysctl.d/99-linforge-swappiness.conf && sysctl -w vm.swappiness=60"
+    },
+    {
+      "id": "tweak_split_lock",
+      "name": "Disable Split-Lock Mitigation (Eliminates Game Stutter)",
+      "category": "gaming",
+      "description": "Disables kernel split-lock penalties which cause severe micro-stutters in Steam games and multi-threaded 3D game engines.",
+      "risk": "safe",
+      "apply_script": "cat << 'EOF' > /etc/sysctl.d/99-linforge-splitlock.conf\nkernel.split_lock_mitigate=0\nEOF\nsysctl --system || true",
+      "revert_script": "rm -f /etc/sysctl.d/99-linforge-splitlock.conf && sysctl --system || true"
+    },
+    {
+      "id": "tweak_zram",
+      "name": "Enable ZRAM High-Speed Compressed RAM Swap",
+      "category": "memory",
+      "description": "Installs and configures zramswap with modern Zstandard compression, giving your system 2x effective RAM capacity and preventing out-of-memory lockups.",
+      "risk": "safe",
+      "apply_script": "apt-get update && apt-get install -y zram-tools\ncat << 'EOF' > /etc/default/zramswap\nALGO=zstd\nPERCENT=100\nPRIORITY=100\nEOF\nsystemctl restart zramswap.service || true",
+      "revert_script": "systemctl stop zramswap.service || true\napt-get remove -y --purge zram-tools || true"
+    },
+    {
+      "id": "tweak_proton_ge_latest",
+      "name": "Install Latest GE-Proton for Steam",
+      "category": "gaming",
+      "description": "Fetches and extracts the latest GloriousEggroll Proton build into ~/.local/share/Steam/compatibilitytools.d/ for enhanced video playback and anti-cheat compatibility.",
+      "risk": "safe",
+      "apply_script": "STEAM_DIR=\"$REAL_HOME/.local/share/Steam/compatibilitytools.d\"\nmkdir -p \"$STEAM_DIR\"\nchown -R \"$REAL_USER:$REAL_USER\" \"$REAL_HOME/.local/share/Steam\" 2>/dev/null || true\nLATEST_TAG=$(curl -s https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest | grep 'tag_name' | cut -d '\"' -f 4)\nif [ -n \"$LATEST_TAG\" ]; then\n  TAR_URL=\"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/${LATEST_TAG}/${LATEST_TAG}.tar.gz\"\n  curl -fsSL \"$TAR_URL\" | tar -xz -C \"$STEAM_DIR/\"\n  chown -R \"$REAL_USER:$REAL_USER\" \"$STEAM_DIR\"\n  echo \"Installed GE-Proton: $LATEST_TAG\"\nfi",
+      "revert_script": "echo 'To remove GE-Proton versions, delete them from ~/.local/share/Steam/compatibilitytools.d/'"
+    },
+    {
+      "id": "tweak_bbr_tcp",
+      "name": "Enable Google BBR TCP Congestion Control",
+      "category": "network",
+      "description": "Upgrades Linux TCP networking stack to Google BBR algorithm, significantly improving download speeds and lowering latency over Wi-Fi and high-bandwidth networks.",
+      "risk": "safe",
+      "apply_script": "modprobe tcp_bbr || true\ncat << 'EOF' > /etc/sysctl.d/99-linforge-bbr.conf\nnet.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\nEOF\nsysctl --system",
+      "revert_script": "rm -f /etc/sysctl.d/99-linforge-bbr.conf && sysctl --system"
+    },
+    {
+      "id": "tweak_baloo_indexer",
+      "name": "KDE Plasma: Limit Baloo File Indexer CPU & RAM",
+      "category": "kde",
+      "description": "Excludes heavy build and game directories (~/Projects, Steam, Node modules) from Baloo file indexer to eliminate 100% CPU lockups and high battery drain.",
+      "risk": "safe",
+      "apply_script": "sudo -u \"$REAL_USER\" -H bash -c 'if command -v balooctl >/dev/null 2>&1; then balooctl config add excludeFolders \"$HOME/Projects\" \"$HOME/.local/share/Steam\" \"$HOME/Downloads\" || true; balooctl restart || true; elif command -v balooctl6 >/dev/null 2>&1; then balooctl6 config add excludeFolders \"$HOME/Projects\" \"$HOME/.local/share/Steam\" \"$HOME/Downloads\" || true; balooctl6 restart || true; fi' || true",
+      "revert_script": "echo 'Baloo exclusions can be reset in KDE System Settings -> Search'"
+    },
+    {
+      "id": "tweak_plasma_animation_speed",
+      "name": "KDE Plasma: 2x Snappier Window Animations",
+      "category": "kde",
+      "description": "Increases KWin desktop and window animation speeds by 2x (AnimationDurationFactor=0.5), making KDE Plasma feel instantaneous and razor-sharp.",
+      "risk": "safe",
+      "apply_script": "sudo -u \"$REAL_USER\" -H bash -c 'if command -v kwriteconfig5 >/dev/null 2>&1; then kwriteconfig5 --file kdeglobals --group KDE --key AnimationDurationFactor 0.5; elif command -v kwriteconfig6 >/dev/null 2>&1; then kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor 0.5; fi; qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || qdbus6 org.kde.KWin /KWin reconfigure 2>/dev/null || true' || true",
+      "revert_script": "sudo -u \"$REAL_USER\" -H bash -c 'if command -v kwriteconfig5 >/dev/null 2>&1; then kwriteconfig5 --file kdeglobals --group KDE --key AnimationDurationFactor 1.0; elif command -v kwriteconfig6 >/dev/null 2>&1; then kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor 1.0; fi; qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || qdbus6 org.kde.KWin /KWin reconfigure 2>/dev/null || true' || true"
+    },
+    {
+      "id": "tweak_dolphin_powerup",
+      "name": "KDE Dolphin: Enable Video & PDF Thumbnail Previews",
+      "category": "kde",
+      "description": "Installs ffmpegthumbnailer, kdegraphics-thumbnailers, and audio preview plugins so Dolphin file manager shows rich thumbnails for MP4, MKV, PDF, and PSD files.",
+      "risk": "safe",
+      "apply_script": "apt-get update && apt-get install -y ffmpegthumbnailer kdegraphics-thumbnailers taglib-extras",
+      "revert_script": "apt-get remove -y ffmpegthumbnailer kdegraphics-thumbnailers"
+    },
+    {
+      "id": "tweak_disable_apport_telemetry",
+      "name": "Disable Ubuntu Apport Crash Popups & Whoopsie Telemetry",
+      "category": "privacy",
+      "description": "Silences the annoying 'System program problem detected' popups and disables Canonical background error reporting daemons.",
+      "risk": "safe",
+      "apply_script": "systemctl stop apport whoopsie || true\nsystemctl disable apport whoopsie || true\nsed -i 's/enabled=1/enabled=0/g' /etc/default/apport || true\napt-get remove -y ubuntu-report whoopsie || true",
+      "revert_script": "systemctl enable apport || true\nsed -i 's/enabled=0/enabled=1/g' /etc/default/apport || true"
+    },
+    {
+      "id": "tweak_disable_ubuntu_pro_spam",
+      "name": "Mute Ubuntu Pro / ESM Terminal Promotions in APT",
+      "category": "privacy",
+      "description": "Silences the promotional 'Try Ubuntu Pro with esm-apps' notice displayed every time you run apt update or apt upgrade in terminal.",
+      "risk": "safe",
+      "apply_script": "sed -i 's/ENABLED=1/ENABLED=0/g' /etc/apt/apt.conf.d/20apt-esm-hook.conf 2>/dev/null || true\nchmod -x /etc/update-motd.d/88-esm-announce 2>/dev/null || true\nchmod -x /etc/update-motd.d/91-contract-ua-esm-status 2>/dev/null || true",
+      "revert_script": "chmod +x /etc/update-motd.d/88-esm-announce 2>/dev/null || true"
+    },
+    {
+      "id": "tweak_enable_ufw",
+      "name": "Enable UFW Firewall with Safe Desktop Defaults",
+      "category": "network",
+      "description": "Enables the Uncomplicated Firewall (UFW) with 'deny incoming, allow outgoing' policy. Automatically allows KDE Connect (ports 1714:1764) and SSH if active.",
+      "risk": "safe",
+      "apply_script": "apt-get update && apt-get install -y ufw\nufw default deny incoming\nufw default allow outgoing\nufw allow 1714:1764/udp comment 'KDE Connect'\nufw allow 1714:1764/tcp comment 'KDE Connect'\nufw --force enable",
+      "revert_script": "ufw --force disable"
+    },
+    {
+      "id": "tweak_secure_dns",
+      "name": "Configure Cloudflare 1.1.1.1 & Quad9 Encrypted DNS",
+      "category": "network",
+      "description": "Configures systemd-resolved with fast privacy-respecting DNS servers (Cloudflare 1.1.1.1 / Quad9 9.9.9.9) and enables DNS-over-TLS (DoT).",
+      "risk": "safe",
+      "apply_script": "cat << 'EOF' > /etc/systemd/resolved.conf.d/linforge-dns.conf\n[Resolve]\nDNS=1.1.1.1 9.9.9.9 2606:4700:4700::1111 2620:fe::fe\nFallbackDNS=8.8.8.8 1.0.0.1\nDNSOverTLS=opportunistic\nEOF\nsystemctl restart systemd-resolved",
+      "revert_script": "rm -f /etc/systemd/resolved.conf.d/linforge-dns.conf && systemctl restart systemd-resolved"
+    }
+  ]
+}

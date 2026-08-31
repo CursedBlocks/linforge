@@ -1,0 +1,67 @@
+{
+  "troubleshooters": [
+    {
+      "id": "fix_apt_locks",
+      "name": "Unlock APT & Fix Broken Package Database",
+      "category": "packages",
+      "icon": "unlock",
+      "description": "Terminates stuck apt/dpkg processes, removes stale lock files (/var/lib/dpkg/lock*), and runs dpkg --configure -a & apt --fix-broken install.",
+      "check_command": "fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1",
+      "fix_script": "killall -9 apt apt-get dpkg unattended-upgrade 2>/dev/null || true\nrm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock* /var/lib/dpkg/updates/*\ndpkg --configure -a\napt-get install -f -y\napt-get update --fix-missing"
+    },
+    {
+      "id": "fix_wifi_power_save",
+      "name": "Fix Random Wi-Fi Dropouts (Disable Power Saving)",
+      "category": "network",
+      "icon": "wifi",
+      "description": "Disables aggressive 802.11 power saving in NetworkManager which causes Realtek and Intel Wi-Fi cards to drop connections randomly.",
+      "check_command": "grep -q 'wifi.powersave = 2' /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf 2>/dev/null",
+      "fix_script": "mkdir -p /etc/NetworkManager/conf.d\ncat << 'EOF' > /etc/NetworkManager/conf.d/linforge-disable-wifi-powersave.conf\n[connection]\nwifi.powersave = 2\nEOF\nsystemctl restart NetworkManager || true"
+    },
+    {
+      "id": "fix_pipewire_audio",
+      "name": "Restart & Reset PipeWire / WirePlumber Audio Stack",
+      "category": "audio",
+      "icon": "volume-2",
+      "description": "Restarts user audio services, flushes ALSA state, un-mutes audio channels, and rebuilds WirePlumber endpoint configurations.",
+      "check_command": "systemctl --user is-active pipewire >/dev/null 2>&1",
+      "fix_script": "alsactl init || true\namixer sset Master unmute 100% 2>/dev/null || true\nsystemctl --user restart pipewire wireplumber pipewire-pulse 2>/dev/null || true\nsystemctl --user daemon-reload"
+    },
+    {
+      "id": "fix_dns_resolver",
+      "name": "Rebuild Broken DNS Resolver & Flush Caches",
+      "category": "network",
+      "icon": "globe",
+      "description": "Flushes systemd-resolved DNS cache and restores the proper /etc/resolv.conf symlink pointing to /run/systemd/resolve/stub-resolv.conf.",
+      "check_command": "ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1 && ! ping -c 1 -W 2 google.com >/dev/null 2>&1",
+      "fix_script": "resolvectl flush-caches 2>/dev/null || systemd-resolve --flush-caches 2>/dev/null || true\nrm -f /etc/resolv.conf\nln -s /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf\nsystemctl restart systemd-resolved"
+    },
+    {
+      "id": "fix_home_permissions",
+      "name": "Repair Home Directory Ownership & Permissions",
+      "category": "permissions",
+      "icon": "user-check",
+      "description": "Recursively restores your user ownership over ~/.config, ~/.cache, ~/.local, and ~/.local/share after accidentally running commands with sudo.",
+      "check_command": "find $HOME/.config -user root -maxdepth 2 2>/dev/null | grep -q .",
+      "fix_script": "REAL_USER=\"${SUDO_USER:-$USER}\"\nREAL_GROUP=$(id -gn \"$REAL_USER\")\nREAL_HOME=$(eval echo \"~$REAL_USER\")\nchown -R \"${REAL_USER}:${REAL_GROUP}\" \"$REAL_HOME/.config\" \"$REAL_HOME/.cache\" \"$REAL_HOME/.local\" \"$REAL_HOME/.ssh\" 2>/dev/null || true\nchmod 700 \"$REAL_HOME/.ssh\" 2>/dev/null || true\nchmod 600 \"$REAL_HOME/.ssh/id_*\" 2>/dev/null || true"
+    },
+    {
+      "id": "fix_nvidia_sleep_wayland",
+      "name": "Fix NVIDIA Sleep / Resume Black Screen & Wayland Crash",
+      "category": "drivers",
+      "icon": "moon",
+      "description": "Enables NVIDIA systemd power management daemons (suspend/hibernate/resume) and sets modeset=1 fbdev=1 to prevent black screens upon wake.",
+      "check_command": "lsmod | grep -q nvidia",
+      "fix_script": "cat << 'EOF' > /etc/modprobe.d/nvidia-power-management.conf\noptions nvidia NVreg_PreserveVideoMemoryAllocations=1\noptions nvidia-drm modeset=1 fbdev=1\nEOF\nsystemctl enable nvidia-suspend.service nvidia-hibernate.service nvidia-resume.service 2>/dev/null || true\nupdate-initramfs -u || true"
+    },
+    {
+      "id": "fix_clean_broken_ppas",
+      "name": "Purge Broken & 404 Repository Sources",
+      "category": "packages",
+      "icon": "trash-2",
+      "description": "Identifies invalid or obsolete third-party repository lists in /etc/apt/sources.list.d/ that cause apt update to throw 404 or GPG signature errors.",
+      "check_command": "! apt-get update -qq 2>&1 | grep -q '404  Not Found'",
+      "fix_script": "apt-get install -y ppa-purge 2>/dev/null || true\napt-get update 2>&1 | grep '404  Not Found' | awk '{print $NF}' | while read -r url; do\n  domain=$(echo \"$url\" | awk -F/ '{print $3}')\n  if [ -n \"$domain\" ]; then\n    echo \"Disabling broken repository with domain: $domain\"\n    grep -l \"$domain\" /etc/apt/sources.list.d/* 2>/dev/null | xargs -r -I {} mv {} {}.disabled\n  fi\ndone || true\napt-get update -qq || true"
+    }
+  ]
+}

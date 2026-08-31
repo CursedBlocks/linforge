@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=LinForge
+GenericName=Linux Setup & Maintenance Suite
+Comment=The Ultimate Linux Setup, Optimization, Hardware Troubleshooting, and System Maintenance Suite
+Exec=linforge --gui
+Icon=linforge
+Terminal=false
+Type=Application
+Categories=System;Settings;Utility;PackageManager;HardwareSettings;
+Keywords=linforge;linutil;winutil;setup;tweaks;drivers;cleanup;troubleshoot;gaming;kubuntu;ubuntu;
+StartupNotify=true

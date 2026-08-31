@@ -1,0 +1,787 @@
+{
+  "categories": [
+    { "id": "browsers", "name": "Web Browsers", "icon": "globe" },
+    { "id": "development", "name": "Development & Code", "icon": "code" },
+    { "id": "gaming", "name": "Gaming & Emulation", "icon": "gamepad" },
+    { "id": "media", "name": "Media & Creative", "icon": "film" },
+    { "id": "productivity", "name": "Productivity & Office", "icon": "briefcase" },
+    { "id": "utilities", "name": "System Utilities & Tools", "icon": "wrench" },
+    { "id": "communication", "name": "Chat & Communication", "icon": "message-circle" },
+    { "id": "security", "name": "Privacy & Security", "icon": "shield" }
+  ],
+  "apps": [
+    {
+      "id": "google-chrome",
+      "name": "Google Chrome",
+      "category": "browsers",
+      "description": "Fast, secure web browser built for the modern web with Google ecosystem sync.",
+      "icon": "chrome",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "wget -qO /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt-get install -y /tmp/chrome.deb && rm /tmp/chrome.deb"
+        },
+        "flatpak": "com.google.Chrome"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "brave-browser",
+      "name": "Brave Browser",
+      "category": "browsers",
+      "description": "Privacy-focused browser that automatically blocks ads, trackers, and fingerprinting.",
+      "icon": "shield",
+      "sources": {
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg",
+          "repo_name": "brave-browser-release",
+          "sources_line": "deb [signed-by=/etc/apt/keyrings/brave-browser-release.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main",
+          "package": "brave-browser"
+        },
+        "flatpak": "com.brave.Browser"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "firefox-native",
+      "name": "Firefox (Native Deb PPA)",
+      "category": "browsers",
+      "description": "Mozilla Firefox installed natively from Mozilla Team PPA (eliminating Snap sandbox delays on Ubuntu/Kubuntu).",
+      "icon": "firefox",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:mozillateam/ppa && echo 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001' > /etc/apt/preferences.d/mozilla-firefox && apt-get update && apt-get install -y --target-release 'o=LP-PPA-mozillateam' firefox"
+        },
+        "flatpak": "org.mozilla.firefox"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "librewolf",
+      "name": "LibreWolf",
+      "category": "browsers",
+      "description": "Hardened Firefox fork designed for maximal privacy, anti-telemetry, and security.",
+      "icon": "globe",
+      "sources": {
+        "flatpak": "io.gitlab.librewolf-community",
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://deb.librewolf.net/keyring.gpg",
+          "repo_name": "librewolf",
+          "sources_line": "deb [arch=amd64 signed-by=/etc/apt/keyrings/librewolf.gpg] http://deb.librewolf.net $(lsb_release -sc) main",
+          "package": "librewolf"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "microsoft-edge",
+      "name": "Microsoft Edge",
+      "category": "browsers",
+      "description": "Chromium-based browser with Copilot integration and vertical tabs.",
+      "icon": "globe",
+      "sources": {
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://packages.microsoft.com/keys/microsoft.asc",
+          "repo_name": "microsoft-edge",
+          "sources_line": "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft-edge.gpg] https://packages.microsoft.com/repos/edge stable main",
+          "package": "microsoft-edge-stable"
+        },
+        "flatpak": "com.microsoft.Edge"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "tor-browser",
+      "name": "Tor Browser",
+      "category": "browsers",
+      "description": "Protect your privacy and defend yourself against network surveillance and tracking.",
+      "icon": "lock",
+      "sources": {
+        "flatpak": "com.github.micahflee.torbrowser-launcher",
+        "native_deb": "torbrowser-launcher"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "category": "development",
+      "description": "Industry-standard code editor with rich extension ecosystem, debugging, and Git integration.",
+      "icon": "code",
+      "sources": {
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://packages.microsoft.com/keys/microsoft.asc",
+          "repo_name": "vscode",
+          "sources_line": "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/vscode.gpg] https://packages.microsoft.com/repos/code stable main",
+          "package": "code"
+        },
+        "flatpak": "com.visualstudio.code",
+        "snap": "code --classic"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "vscodium",
+      "name": "VSCodium",
+      "category": "development",
+      "description": "Open-source telemetry-free binary release of VS Code without Microsoft proprietary tracking.",
+      "icon": "code",
+      "sources": {
+        "flatpak": "com.vscodium.codium",
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg",
+          "repo_name": "vscodium",
+          "sources_line": "deb [signed-by=/etc/apt/keyrings/vscodium.gpg] https://download.vscodium.com/debs vscodium main",
+          "package": "codium"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "cursor-ai",
+      "name": "Cursor AI Code Editor",
+      "category": "development",
+      "description": "AI-first code editor designed for pair programming with modern LLMs.",
+      "icon": "sparkles",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "mkdir -p ~/.local/bin ~/.local/share/applications && curl -fsSL 'https://downloader.cursor.sh/linux/appImage/x64' -o ~/.local/bin/cursor.AppImage && chmod +x ~/.local/bin/cursor.AppImage && printf '[Desktop Entry]\\nName=Cursor\\nExec=%s/.local/bin/cursor.AppImage\\nIcon=utilities-terminal\\nType=Application\\nCategories=Development;' \"$HOME\" > ~/.local/share/applications/cursor.desktop"
+        }
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "docker-engine",
+      "name": "Docker Engine & Compose",
+      "category": "development",
+      "description": "Official Docker Community Edition container runtime and Compose plugin.",
+      "icon": "box",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && chmod a+r /etc/apt/keyrings/docker.gpg && echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs 2>/dev/null || echo jammy) stable\" > /etc/apt/sources.list.d/docker.list && apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && usermod -aG docker ${SUDO_USER:-$USER}"
+        }
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "neovim",
+      "name": "Neovim",
+      "category": "development",
+      "description": "Hyperextensible Vim-based text editor with Lua scripting and built-in LSP.",
+      "icon": "terminal",
+      "sources": {
+        "native_deb": "neovim",
+        "flatpak": "io.neovim.nvim"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "gitkraken",
+      "name": "GitKraken",
+      "category": "development",
+      "description": "Visual Git GUI client with visual commit graphs, interactive rebase, and merge conflict resolution.",
+      "icon": "git-branch",
+      "sources": {
+        "flatpak": "com.axosoft.GitKraken",
+        "snap": "gitkraken --classic"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "dbeaver",
+      "name": "DBeaver Community",
+      "category": "development",
+      "description": "Universal database manager supporting PostgreSQL, MySQL, SQLite, Oracle, MongoDB, and Redis.",
+      "icon": "database",
+      "sources": {
+        "flatpak": "io.dbeaver.DBeaverCommunity",
+        "native_deb": {
+          "type": "script",
+          "command": "wget -qO /tmp/dbeaver.deb https://dbeaver.io/files/dbeaver-ce_latest_amd64.deb && apt-get install -y /tmp/dbeaver.deb && rm /tmp/dbeaver.deb"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "postman",
+      "name": "Postman",
+      "category": "development",
+      "description": "API platform for building, designing, testing, and mocking REST and GraphQL APIs.",
+      "icon": "send",
+      "sources": {
+        "flatpak": "com.getpostman.Postman",
+        "snap": "postman"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "jetbrains-toolbox",
+      "name": "JetBrains Toolbox",
+      "category": "development",
+      "description": "Manage IntelliJ IDEA, PyCharm, WebStorm, CLion, Rider, and Android Studio installs.",
+      "icon": "layers",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "TMP_DIR=$(mktemp -d) && curl -fsSL 'https://data.services.jetbrains.com/products/download?platform=linux&code=TBA' -o $TMP_DIR/toolbox.tar.gz && tar -xzf $TMP_DIR/toolbox.tar.gz -C $TMP_DIR && $TMP_DIR/*/jetbrains-toolbox --install || true && rm -rf $TMP_DIR"
+        }
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "steam",
+      "name": "Steam",
+      "category": "gaming",
+      "description": "The ultimate gaming platform. Play thousands of Windows games seamlessly via Proton on Linux.",
+      "icon": "play",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "dpkg --add-architecture i386 && apt-get update && apt-get install -y steam-installer steam-devices || apt-get install -y steam"
+        },
+        "flatpak": "com.valvesoftware.Steam"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "heroic-games-launcher",
+      "name": "Heroic Games Launcher",
+      "category": "gaming",
+      "description": "Native open-source launcher for Epic Games, GOG, and Amazon Prime Games with Proton/Wine.",
+      "icon": "award",
+      "sources": {
+        "flatpak": "com.heroicgameslauncher.hgl",
+        "native_deb": {
+          "type": "script",
+          "command": "LATEST_URL=$(curl -s https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest | grep 'browser_download_url.*_amd64.deb' | cut -d '\"' -f 4) && wget -qO /tmp/heroic.deb \"$LATEST_URL\" && apt-get install -y /tmp/heroic.deb && rm /tmp/heroic.deb"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "lutris",
+      "name": "Lutris",
+      "category": "gaming",
+      "description": "Open gaming platform for Linux. Manage games from Steam, GOG, Battle.net, EA App, and Ubisoft.",
+      "icon": "crosshair",
+      "sources": {
+        "flatpak": "net.lutris.Lutris",
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:lutris-team/lutris && apt-get update && apt-get install -y lutris"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "protonup-qt",
+      "name": "ProtonUp-Qt",
+      "category": "gaming",
+      "description": "Easily install and manage GE-Proton, Luxtorpeda, Wine-GE for Steam, Heroic, and Lutris.",
+      "icon": "download-cloud",
+      "sources": {
+        "flatpak": "net.davidotek.pupgui2"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "bottles",
+      "name": "Bottles",
+      "category": "gaming",
+      "description": "Run Windows software and games on Linux using isolated environments with pre-configured wineprefixes.",
+      "icon": "package",
+      "sources": {
+        "flatpak": "com.usebottles.bottles"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "mangohud",
+      "name": "MangoHud & Goverlay",
+      "category": "gaming",
+      "description": "Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load, VRAM, and RAM.",
+      "icon": "activity",
+      "sources": {
+        "native_deb": "mangohud",
+        "flatpak": "io.github.benjamimgois.goverlay"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "gamemode",
+      "name": "Feral GameMode",
+      "category": "gaming",
+      "description": "Daemon/library combo that optimizes Linux system performance on demand for video games.",
+      "icon": "zap",
+      "sources": {
+        "native_deb": "gamemode"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "prism-launcher",
+      "name": "Prism Launcher (Minecraft)",
+      "category": "gaming",
+      "description": "Custom launcher for Minecraft with support for multiple instances, CurseForge, Modrinth, and Fabric/Forge.",
+      "icon": "box",
+      "sources": {
+        "flatpak": "org.prismlauncher.PrismLauncher",
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://keys.openpgp.org/vks/v1/by-fingerprint/E026B89241F1E813A7271F702F1694062E77B253",
+          "repo_name": "prism-launcher",
+          "sources_line": "deb [signed-by=/etc/apt/keyrings/prism-launcher.gpg] https://ppa.launchpadcontent.net/prismlauncher/prismlauncher/ubuntu jammy main",
+          "package": "prismlauncher"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "retroarch",
+      "name": "RetroArch",
+      "category": "gaming",
+      "description": "Frontend for emulators, game engines and media players with cross-platform shaders and netplay.",
+      "icon": "tv",
+      "sources": {
+        "flatpak": "org.libretro.RetroArch",
+        "native_deb": "retroarch"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "rpcs3",
+      "name": "RPCS3 (PS3 Emulator)",
+      "category": "gaming",
+      "description": "Open-source Sony PlayStation 3 emulator and debugger.",
+      "icon": "cpu",
+      "sources": {
+        "flatpak": "net.rpcs3.RPCS3"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "pcsx2",
+      "name": "PCSX2 (PS2 Emulator)",
+      "category": "gaming",
+      "description": "PlayStation 2 emulator supporting high internal resolutions, widescreen patches, and save states.",
+      "icon": "disc",
+      "sources": {
+        "flatpak": "net.pcsx2.PCSX2"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "dolphin-emu",
+      "name": "Dolphin Emulator",
+      "category": "gaming",
+      "description": "GameCube and Wii emulator with HD texture packs and netplay support.",
+      "icon": "play-circle",
+      "sources": {
+        "flatpak": "org.DolphinEmu.dolphin-emu"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "obs-studio",
+      "name": "OBS Studio",
+      "category": "media",
+      "description": "Free and open source software for video recording and live streaming with hardware NVENC/VA-API support.",
+      "icon": "video",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:obsproject/obs-studio && apt-get update && apt-get install -y obs-studio"
+        },
+        "flatpak": "com.obsproject.Studio"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "blender",
+      "name": "Blender",
+      "category": "media",
+      "description": "Open source 3D creation suite: modeling, rigging, animation, simulation, rendering, and video editing.",
+      "icon": "box",
+      "sources": {
+        "flatpak": "org.blender.Blender",
+        "snap": "blender --classic",
+        "native_deb": "blender"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "kdenlive",
+      "name": "Kdenlive",
+      "category": "media",
+      "description": "Powerful multi-track video editor built on the KDE Frameworks and MLT video framework.",
+      "icon": "film",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:kdenlive/kdenlive-stable && apt-get update && apt-get install -y kdenlive"
+        },
+        "flatpak": "org.kde.kdenlive"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "gimp",
+      "name": "GIMP",
+      "category": "media",
+      "description": "GNU Image Manipulation Program for high quality photo retouching, image composition, and authoring.",
+      "icon": "image",
+      "sources": {
+        "flatpak": "org.gimp.GIMP",
+        "native_deb": "gimp"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "inkscape",
+      "name": "Inkscape",
+      "category": "media",
+      "description": "Professional vector graphics editor for Linux, creating SVG, EPS, PDF, and PNG files.",
+      "icon": "pen-tool",
+      "sources": {
+        "flatpak": "org.inkscape.Inkscape",
+        "native_deb": "inkscape"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "krita",
+      "name": "Krita",
+      "category": "media",
+      "description": "Professional painting program for digital artists, concept art, illustrators, and comic creators.",
+      "icon": "brush",
+      "sources": {
+        "flatpak": "org.kde.krita",
+        "native_deb": "krita"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "vlc",
+      "name": "VLC Media Player",
+      "category": "media",
+      "description": "Universal multimedia player that plays most multimedia files, DVDs, Audio CDs, and streaming protocols.",
+      "icon": "play",
+      "sources": {
+        "native_deb": "vlc",
+        "flatpak": "org.videolan.VLC"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "handbrake",
+      "name": "HandBrake",
+      "category": "media",
+      "description": "Open-source video transcoder with hardware encoding support for converting video from nearly any format.",
+      "icon": "sliders",
+      "sources": {
+        "flatpak": "fr.handbrake.ghb",
+        "native_deb": "handbrake"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "audacity",
+      "name": "Audacity / Tenacity",
+      "category": "media",
+      "description": "Multi-track audio editor and recorder for podcasts, music, and sound mastering.",
+      "icon": "music",
+      "sources": {
+        "flatpak": "org.audacityteam.Audacity",
+        "native_deb": "audacity"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "category": "media",
+      "description": "Stream millions of songs and podcasts on your Linux desktop.",
+      "icon": "music",
+      "sources": {
+        "flatpak": "com.spotify.Client",
+        "snap": "spotify",
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://download.spotify.com/debian/pubkey_6224F9941A8AA6D1.gpg",
+          "repo_name": "spotify",
+          "sources_line": "deb [signed-by=/etc/apt/keyrings/spotify.gpg] http://repository.spotify.com stable non-free",
+          "package": "spotify-client"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "libreoffice-fresh",
+      "name": "LibreOffice Fresh",
+      "category": "productivity",
+      "description": "Comprehensive office suite (Writer, Calc, Impress, Draw) updated to the latest upstream release.",
+      "icon": "file-text",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:libreoffice/ppa && apt-get update && apt-get install -y libreoffice"
+        },
+        "flatpak": "org.libreoffice.LibreOffice"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "onlyoffice",
+      "name": "ONLYOFFICE Desktop Editors",
+      "category": "productivity",
+      "description": "Highest Microsoft Office format compatibility (.docx, .xlsx, .pptx) in an intuitive tabbed interface.",
+      "icon": "file-text",
+      "sources": {
+        "flatpak": "org.onlyoffice.desktopeditors",
+        "snap": "onlyoffice-desktopeditors"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "category": "productivity",
+      "description": "Extensible knowledge base and markdown note-taking app that works on your local folder of plain text files.",
+      "icon": "book-open",
+      "sources": {
+        "flatpak": "md.obsidian.Obsidian",
+        "snap": "obsidian --classic"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "thunderbird",
+      "name": "Mozilla Thunderbird",
+      "category": "productivity",
+      "description": "Open-source email, calendar, and contacts client with OpenPGP encryption.",
+      "icon": "mail",
+      "sources": {
+        "native_deb": "thunderbird",
+        "flatpak": "org.mozilla.Thunderbird"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "category": "communication",
+      "description": "Voice, video, and text communication service for gaming communities and teams.",
+      "icon": "message-square",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "wget -qO /tmp/discord.deb 'https://discord.com/api/download?platform=linux&format=deb' && apt-get install -y /tmp/discord.deb && rm /tmp/discord.deb"
+        },
+        "flatpak": "com.discordapp.Discord"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "vesktop",
+      "name": "Vesktop (Discord with Screen Share Audio)",
+      "category": "communication",
+      "description": "Custom Discord client with Vencord plugins and native Wayland PipeWire audio/screen sharing support.",
+      "icon": "tv",
+      "sources": {
+        "flatpak": "dev.vencord.Vesktop"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "telegram-desktop",
+      "name": "Telegram Desktop",
+      "category": "communication",
+      "description": "Fast, cloud-based messaging app with end-to-end encryption for secret chats.",
+      "icon": "send",
+      "sources": {
+        "flatpak": "org.telegram.desktop",
+        "native_deb": "telegram-desktop"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "signal-desktop",
+      "name": "Signal Desktop",
+      "category": "communication",
+      "description": "Private messenger with state-of-the-art end-to-end encryption for messages, voice and video calls.",
+      "icon": "lock",
+      "sources": {
+        "flatpak": "org.signal.Signal",
+        "native_deb": {
+          "type": "repo",
+          "key_url": "https://updates.signal.org/desktop/apt/keys.asc",
+          "repo_name": "signal-xenial",
+          "sources_line": "deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-xenial.gpg] https://updates.signal.org/desktop/apt xenial main",
+          "package": "signal-desktop"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "bitwarden",
+      "name": "Bitwarden",
+      "category": "security",
+      "description": "Secure and open source password manager to generate, store, and auto-fill passwords and 2FA.",
+      "icon": "shield",
+      "sources": {
+        "flatpak": "com.bitwarden.desktop",
+        "native_deb": {
+          "type": "script",
+          "command": "wget -qO /tmp/bitwarden.deb 'https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb' && apt-get install -y /tmp/bitwarden.deb && rm /tmp/bitwarden.deb"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "keepassxc",
+      "name": "KeePassXC",
+      "category": "security",
+      "description": "Cross-platform community-driven port of the KeePass password manager stored entirely offline.",
+      "icon": "key",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:phoerious/keepassxc && apt-get update && apt-get install -y keepassxc"
+        },
+        "flatpak": "org.keepassxc.KeePassXC"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "timeshift",
+      "name": "Timeshift",
+      "category": "utilities",
+      "description": "System restore tool that takes RSYNC or BTRFS snapshots of your OS for instant rollback.",
+      "icon": "clock",
+      "sources": {
+        "native_deb": "timeshift"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "mission-center",
+      "name": "Mission Center",
+      "category": "utilities",
+      "description": "Beautiful modern system resource monitor with CPU, GPU, RAM, Disk, and Network graphs.",
+      "icon": "activity",
+      "sources": {
+        "flatpak": "io.missioncenter.MissionCenter"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "fastfetch",
+      "name": "Fastfetch",
+      "category": "utilities",
+      "description": "Lightning-fast neofetch alternative written in C with rich hardware logos and distro telemetry.",
+      "icon": "terminal",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:zhangsongcui3371/fastfetch && apt-get update && apt-get install -y fastfetch"
+        }
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "btop",
+      "name": "btop Resource Monitor",
+      "category": "utilities",
+      "description": "Modern terminal resource monitor with responsive graphs for CPU, memory, disks, network and processes.",
+      "icon": "bar-chart-2",
+      "sources": {
+        "native_deb": "btop",
+        "snap": "btop"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "gparted",
+      "name": "GParted Partition Editor",
+      "category": "utilities",
+      "description": "Graphical partition editor for resizing, copying, creating, and checking disk partitions.",
+      "icon": "hard-drive",
+      "sources": {
+        "native_deb": "gparted"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "flatseal",
+      "name": "Flatseal",
+      "category": "utilities",
+      "description": "Graphical utility to review and modify permissions for all your Flatpak applications.",
+      "icon": "sliders",
+      "sources": {
+        "flatpak": "com.github.tchx84.Flatseal"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "warehouse",
+      "name": "Warehouse (Flatpak Manager)",
+      "category": "utilities",
+      "description": "Manage installed Flatpaks, user data, remotes, batch operations, and downgrade versions.",
+      "icon": "archive",
+      "sources": {
+        "flatpak": "io.github.flattool.Warehouse"
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "openrgb",
+      "name": "OpenRGB",
+      "category": "utilities",
+      "description": "Open source RGB lighting control that doesn't depend on manufacturer software for ASUS, MSI, Corsair, Razer.",
+      "icon": "sun",
+      "sources": {
+        "flatpak": "org.openrgb.OpenRGB",
+        "native_deb": {
+          "type": "script",
+          "command": "add-apt-repository -y ppa:thopiekar/openrgb && apt-get update && apt-get install -y openrgb"
+        }
+      },
+      "default_source": "flatpak"
+    },
+    {
+      "id": "rustdesk",
+      "name": "RustDesk",
+      "category": "utilities",
+      "description": "Open-source virtual / remote desktop infrastructure written in Rust. Secure alternative to TeamViewer.",
+      "icon": "monitor",
+      "sources": {
+        "native_deb": {
+          "type": "script",
+          "command": "LATEST_URL=$(curl -s https://api.github.com/repos/rustdesk/rustdesk/releases/latest | grep 'browser_download_url.*x86_64.deb' | cut -d '\"' -f 4) && wget -qO /tmp/rustdesk.deb \"$LATEST_URL\" && apt-get install -y /tmp/rustdesk.deb && rm /tmp/rustdesk.deb"
+        },
+        "flatpak": "com.rustdesk.RustDesk"
+      },
+      "default_source": "native_deb"
+    },
+    {
+      "id": "bleachbit",
+      "name": "BleachBit",
+      "category": "utilities",
+      "description": "Quickly frees disk space and guards privacy. Cleans cache, deletes cookies, clears Internet history, and shreds temporary files.",
+      "icon": "trash-2",
+      "sources": {
+        "native_deb": "bleachbit",
+        "flatpak": "org.bleachbit.BleachBit"
+      },
+      "default_source": "native_deb"
+    }
+  ]
+}

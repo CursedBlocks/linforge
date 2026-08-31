@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinForge - The Ultimate Linux Setup & Maintenance Suite</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Lucide Icons & Chart.js -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="theme-cyber">
+  <div class="app-container">
+    
+    <!-- Top Navigation Bar -->
+    <header class="top-navbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i data-lucide="flame"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Lin<span>Forge</span></h1>
+          <p class="tagline">Linux Companion & Power Suite</p>
+        </div>
+      </div>
+
+      <div class="search-bar-container">
+        <i data-lucide="search" class="search-icon"></i>
+        <input type="text" id="global-search" placeholder="Search apps, drivers, tweaks, or tools (Press '/' to search)..." />
+      </div>
+
+      <div class="header-actions">
+        <!-- Theme Switcher -->
+        <div class="theme-selector-dropdown">
+          <button id="theme-btn" class="btn-theme-selector" title="Switch UI Theme">
+            <i data-lucide="palette"></i>
+            <span id="current-theme-label">Cyber Neon</span>
+            <i data-lucide="chevron-down" class="dropdown-chevron"></i>
+          </button>
+          <div class="theme-menu" id="theme-menu">
+            <div class="theme-option active" data-theme="theme-cyber">
+              <span class="theme-dot dot-cyber"></span> Cyber Neon
+            </div>
+            <div class="theme-option" data-theme="theme-plasma">
+              <span class="theme-dot dot-plasma"></span> Plasma KDE Indigo
+            </div>
+            <div class="theme-option" data-theme="theme-midnight">
+              <span class="theme-dot dot-midnight"></span> Midnight Dark
+            </div>
+            <div class="theme-option" data-theme="theme-ubuntu">
+              <span class="theme-dot dot-ubuntu"></span> Ubuntu Warmth
+            </div>
+            <div class="theme-option" data-theme="theme-emerald">
+              <span class="theme-dot dot-emerald"></span> Emerald Matrix
+            </div>
+          </div>
+        </div>
+
+        <div class="system-status-pill" id="system-status-pill">
+          <span class="status-dot"></span>
+          <span id="distro-pill-text">Detecting System...</span>
+        </div>
+
+        <button id="btn-shortcuts" class="btn-icon" title="Keyboard Shortcuts (?)" onclick="LinForge.openShortcutsModal()">
+          <i data-lucide="help-circle"></i>
+        </button>
+
+        <button id="btn-toggle-terminal" class="btn-icon" title="Toggle Terminal Logs (T)">
+          <i data-lucide="terminal"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace (Sidebar + Content) -->
+    <div class="main-body">
+      
+      <!-- Sidebar Navigation -->
+      <aside class="sidebar">
+        <nav class="nav-menu">
+          <button class="nav-item active" data-tab="dashboard">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Dashboard</span>
+          </button>
+          <button class="nav-item" data-tab="presets">
+            <i data-lucide="sparkles"></i>
+            <span>1-Click Presets</span>
+            <span class="badge-new">NEW</span>
+          </button>
+          <button class="nav-item" data-tab="apps">
+            <i data-lucide="shopping-bag"></i>
+            <span>App Store</span>
+            <span class="badge" id="apps-count-badge">100+</span>
+          </button>
+          <button class="nav-item" data-tab="tweaks">
+            <i data-lucide="zap"></i>
+            <span>Performance Tweaks</span>
+          </button>
+          <button class="nav-item" data-tab="drivers">
+            <i data-lucide="cpu"></i>
+            <span>Driver Doctor</span>
+          </button>
+          <button class="nav-item" data-tab="cleanup">
+            <i data-lucide="trash-2"></i>
+            <span>System Cleanup</span>
+          </button>
+          <button class="nav-item" data-tab="troubleshoot">
+            <i data-lucide="wrench"></i>
+            <span>Emergency Repair</span>
+          </button>
+          <button class="nav-item" data-tab="developer">
+            <i data-lucide="code-2"></i>
+            <span>Developer Stacks</span>
+          </button>
+          <button class="nav-item" data-tab="maintenance">
+            <i data-lucide="refresh-cw"></i>
+            <span>Universal Updates</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="kernel-info">
+            <span class="lbl">Active Kernel:</span>
+            <span class="val" id="sidebar-kernel-val">Loading...</span>
+          </div>
+          <div class="quick-action-btns">
+            <button class="btn btn-sm btn-primary" onclick="LinForge.runAction('maintenance', 'update_all')" title="Universal 1-Click Update">
+              <i data-lucide="arrow-up-circle"></i> Update All
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="LinForge.runAction('cleanup', 'all')" title="Deep Clean System">
+              <i data-lucide="sparkles"></i> Clean
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Pane -->
+      <main class="content-pane" id="main-scroll-area">
+
+        <!-- TAB 1: DASHBOARD -->
+        <section id="tab-dashboard" class="tab-pane active">
+          
+          <!-- Presets Hero Banner -->
+          <div class="presets-hero-card">
+            <div class="hero-text">
+              <h2>⚡ Instant System Transformation</h2>
+              <p>Configure your Linux installation in 1-click with tailored profiles for Gaming, Development, Debloat, or Content Creation.</p>
+            </div>
+            <button class="btn btn-hero" onclick="LinForge.switchTab('presets')">
+              <i data-lucide="sparkles"></i> Explore Presets Wizard
+            </button>
+          </div>
+
+          <div class="dashboard-grid">
+            <!-- CPU Card -->
+            <div class="metric-card">
+              <div class="card-header">
+                <div class="metric-icon bg-cyan"><i data-lucide="cpu"></i></div>
+                <div>
+                  <h3>Processor Utilization</h3>
+                  <p class="sub" id="cpu-model-text">Loading...</p>
+                </div>
+              </div>
+              <div class="gauge-container">
+                <div class="gauge-bar-wrapper">
+                  <div class="gauge-bar bg-cyan-gradient" id="cpu-gauge-bar" style="width: 0%;"></div>
+                </div>
+                <div class="gauge-meta">
+                  <span class="gauge-val" id="cpu-percent-text">0%</span>
+                  <span class="gauge-detail" id="cpu-temp-text">--°C</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Memory Card -->
+            <div class="metric-card">
+              <div class="card-header">
+                <div class="metric-icon bg-indigo"><i data-lucide="hard-drive"></i></div>
+                <div>
+                  <h3>Memory & Swap</h3>
+                  <p class="sub" id="ram-usage-text">0 MB / 0 MB</p>
+                </div>
+              </div>
+              <div class="gauge-container">
+                <div class="gauge-bar-wrapper">
+                  <div class="gauge-bar bg-indigo-gradient" id="ram-gauge-bar" style="width: 0%;"></div>
+                </div>
+                <div class="gauge-meta">
+                  <span class="gauge-val" id="ram-percent-text">0%</span>
+                  <span class="gauge-detail" id="swap-status-text">Swap: 0 MB</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Network I/O Card -->
+            <div class="metric-card">
+              <div class="card-header">
+                <div class="metric-icon bg-emerald"><i data-lucide="activity"></i></div>
+                <div>
+                  <h3>Network Throughput</h3>
+                  <p class="sub" id="net-iface-text">Active Interface</p>
+                </div>
+              </div>
+              <div class="net-speeds">
+                <div class="net-stat">
+                  <i data-lucide="arrow-down" class="text-emerald"></i>
+                  <span class="speed-val" id="net-down-text">0.0 KB/s</span>
+                  <span class="speed-lbl">Download</span>
+                </div>
+                <div class="net-stat">
+                  <i data-lucide="arrow-up" class="text-cyan"></i>
+                  <span class="speed-val" id="net-up-text">0.0 KB/s</span>
+                  <span class="speed-lbl">Upload</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Real-Time Telemetry History Chart -->
+          <div class="chart-section-card">
+            <div class="section-header-compact">
+              <div class="sec-title">
+                <i data-lucide="line-chart" class="text-cyan"></i>
+                <h3>Real-Time Resource Telemetry</h3>
+              </div>
+              <span class="live-pill"><span class="pulse-dot"></span> LIVE 2s INTERVAL</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="telemetry-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Storage Disks Breakdown -->
+          <div class="section-card">
+            <div class="section-header-compact">
+              <div class="sec-title">
+                <i data-lucide="database" class="text-indigo"></i>
+                <h3>Storage Disks & Mounted Partitions</h3>
+              </div>
+            </div>
+            <div class="disks-grid" id="disks-container">
+              <div class="loading-placeholder">Scanning storage partitions...</div>
+            </div>
+          </div>
+
+          <!-- System Hardware Specs Breakdown -->
+          <div class="section-card">
+            <div class="section-header-compact">
+              <div class="sec-title">
+                <i data-lucide="info" class="text-cyan"></i>
+                <h3>Hardware Specifications & Environment</h3>
+              </div>
+            </div>
+            <div class="specs-grid" id="specs-container">
+              <div class="loading-placeholder">Loading environment specifications...</div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- TAB 2: PRESETS WIZARD -->
+        <section id="tab-presets" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>🌟 1-Click System Transformation Presets</h2>
+              <p>Apply comprehensive profiles that configure curated applications, gaming memory maps, driver stacks, and shell environments automatically.</p>
+            </div>
+          </div>
+
+          <div class="presets-grid" id="presets-container">
+            <div class="loading-placeholder">Loading system presets...</div>
+          </div>
+        </section>
+
+        <!-- TAB 3: APP STORE -->
+        <section id="tab-apps" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>📦 Application Store & Bulk Installer</h2>
+              <p>Choose from 100+ curated native Deb, Flatpak Flathub, and verified vendor applications. Click any card for details.</p>
+            </div>
+            <div class="batch-install-controls" id="batch-install-bar">
+              <span class="selected-count" id="selected-apps-count">0 apps selected</span>
+              <button class="btn btn-primary" id="btn-install-selected" onclick="LinForge.installSelectedApps()">
+                <i data-lucide="download"></i> Install Selected
+              </button>
+              <button class="btn btn-secondary" onclick="LinForge.clearAppSelection()">Clear</button>
+            </div>
+          </div>
+
+          <!-- Category Filter Pills -->
+          <div class="category-pills" id="app-category-pills">
+            <button class="pill active" data-category="all">All Applications</button>
+          </div>
+
+          <!-- Apps Grid -->
+          <div class="apps-grid" id="apps-grid-container">
+            <div class="loading-placeholder">Loading application catalog...</div>
+          </div>
+        </section>
+
+        <!-- TAB 4: PERFORMANCE TWEAKS -->
+        <section id="tab-tweaks" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>⚡ Performance, Gaming & Desktop Tweaks</h2>
+              <p>Apply safe, reversible system optimizations for lower latency, higher FPS, Kubuntu/KDE Plasma responsiveness, and battery saving.</p>
+            </div>
+            <button class="btn btn-primary" onclick="LinForge.applyRecommendedTweaks()">
+              <i data-lucide="check-circle-2"></i> Apply Recommended Gaming Tweaks
+            </button>
+          </div>
+
+          <div class="category-pills" id="tweak-category-pills">
+            <button class="pill active" data-category="all">All Tweaks</button>
+          </div>
+
+          <div class="tweaks-grid" id="tweaks-grid-container">
+            <div class="loading-placeholder">Loading performance tweaks...</div>
+          </div>
+        </section>
+
+        <!-- TAB 5: DRIVER DOCTOR -->
+        <section id="tab-drivers" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>🔧 Driver Doctor & Hardware Enablers</h2>
+              <p>Detects your graphics cards, Wi-Fi chipsets, audio architecture, and gaming controllers with 1-click driver installation.</p>
+            </div>
+          </div>
+
+          <div class="driver-cards-grid">
+            <!-- NVIDIA Card -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-emerald"><i data-lucide="shield"></i></div>
+                <div>
+                  <h4>NVIDIA Proprietary Drivers</h4>
+                  <p>Installs official Graphics Drivers PPA, latest driver branch, 32-bit Vulkan/Steam libraries, and Wayland DRM modesetting.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge" id="nvidia-status-badge">Auto-detecting...</span>
+                <button class="btn btn-primary btn-sm" onclick="LinForge.runAction('drivers', 'nvidia')">
+                  <i data-lucide="download"></i> Install NVIDIA Driver
+                </button>
+              </div>
+            </div>
+
+            <!-- AMD / Intel Mesa Fresh -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-rose"><i data-lucide="zap"></i></div>
+                <div>
+                  <h4>AMD Radeon & Intel Kisak-Mesa</h4>
+                  <p>Upgrades to Kisak-Mesa fresh PPA for the latest Vulkan RADV drivers and hardware VA-API video acceleration.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge" id="amd-status-badge">Available</span>
+                <button class="btn btn-secondary btn-sm" onclick="LinForge.runAction('drivers', 'amd')">
+                  <i data-lucide="refresh-cw"></i> Upgrade Mesa
+                </button>
+              </div>
+            </div>
+
+            <!-- Broadcom Wi-Fi -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-cyan"><i data-lucide="wifi"></i></div>
+                <div>
+                  <h4>Broadcom BCM43xx Wi-Fi</h4>
+                  <p>Installs proprietary Broadcom STA wireless kernel source (`bcmwl-kernel-source`) and unblocks wireless cards.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge">Hardware Doctor</span>
+                <button class="btn btn-secondary btn-sm" onclick="LinForge.runAction('drivers', 'broadcom')">
+                  <i data-lucide="download"></i> Install Driver
+                </button>
+              </div>
+            </div>
+
+            <!-- Realtek Wireless -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-indigo"><i data-lucide="radio"></i></div>
+                <div>
+                  <h4>Realtek Wireless & Ethernet DKMS</h4>
+                  <p>Installs Realtek RTL8821CE/R8168 DKMS drivers and firmware for reliable high-speed networking.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge">Hardware Doctor</span>
+                <button class="btn btn-secondary btn-sm" onclick="LinForge.runAction('drivers', 'realtek')">
+                  <i data-lucide="download"></i> Install Driver
+                </button>
+              </div>
+            </div>
+
+            <!-- Low-Latency PipeWire Audio -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-purple"><i data-lucide="volume-2"></i></div>
+                <div>
+                  <h4>Low-Latency PipeWire Audio Stack</h4>
+                  <p>Configures 128 quantum low-latency buffer, disables power-save popping, and installs Bluetooth LDAC/aptX codecs.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge" id="audio-status-badge">Detecting...</span>
+                <button class="btn btn-primary btn-sm" onclick="LinForge.runAction('drivers', 'pipewire')">
+                  <i data-lucide="settings"></i> Configure PipeWire
+                </button>
+              </div>
+            </div>
+
+            <!-- Game Controllers -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-amber"><i data-lucide="gamepad"></i></div>
+                <div>
+                  <h4>Game Controllers (DualSense / Xbox)</h4>
+                  <p>Installs Steam controller udev rules, hidraw access permissions for Sony PS5 DualSense haptics, and calibration tools.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge">Gaming Peripherals</span>
+                <button class="btn btn-secondary btn-sm" onclick="LinForge.runAction('drivers', 'controllers')">
+                  <i data-lucide="check"></i> Setup Controllers
+                </button>
+              </div>
+            </div>
+
+            <!-- OpenRGB Hardware Lighting -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-rose"><i data-lucide="sun"></i></div>
+                <div>
+                  <h4>OpenRGB Motherboard & RAM Lighting</h4>
+                  <p>Loads `i2c-dev` kernel modules and configures udev rules to control RGB lighting without proprietary bloatware.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge">RGB Control</span>
+                <button class="btn btn-secondary btn-sm" onclick="LinForge.runAction('drivers', 'openrgb')">
+                  <i data-lucide="sliders"></i> Configure OpenRGB
+                </button>
+              </div>
+            </div>
+
+            <!-- Laptop Battery auto-cpufreq -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-emerald"><i data-lucide="battery-charging"></i></div>
+                <div>
+                  <h4>auto-cpufreq Laptop Battery Extender</h4>
+                  <p>Installs auto-cpufreq to dynamically manage CPU governors and turbo frequencies, doubling laptop battery life.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge">Power Management</span>
+                <button class="btn btn-primary btn-sm" onclick="LinForge.runAction('drivers', 'autocpufreq')">
+                  <i data-lucide="download"></i> Install auto-cpufreq
+                </button>
+              </div>
+            </div>
+
+            <!-- XanMod Gaming Kernel -->
+            <div class="driver-card">
+              <div class="driver-card-header">
+                <div class="metric-icon bg-cyan"><i data-lucide="cpu"></i></div>
+                <div>
+                  <h4>XanMod High-Performance Gaming Kernel</h4>
+                  <p>Custom kernel tuned for low-latency desktop responsiveness, high throughput, and high-tickrate gaming.</p>
+                </div>
+              </div>
+              <div class="driver-card-actions">
+                <span class="status-badge">Pro Gaming</span>
+                <button class="btn btn-secondary btn-sm" onclick="LinForge.runAction('drivers', 'xanmod')">
+                  <i data-lucide="download"></i> Install XanMod
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 6: SYSTEM CLEANUP -->
+        <section id="tab-cleanup" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>🧹 Deep System Cleaner & Storage Optimizer</h2>
+              <p>Reclaim gigabytes of disk space by safely removing cached packages, vacuuming systemd journals, pruning Flatpaks, and purging old Snaps.</p>
+            </div>
+            <button class="btn btn-danger" onclick="LinForge.runAction('cleanup', 'all')">
+              <i data-lucide="sparkles"></i> Run Full System Deep Clean
+            </button>
+          </div>
+
+          <div class="cleanup-grid">
+            <div class="cleanup-card">
+              <div class="clean-info">
+                <div class="metric-icon bg-cyan"><i data-lucide="archive"></i></div>
+                <div>
+                  <h4>Package Manager Caches & Orphans</h4>
+                  <p>Cleans downloaded `.deb`/`.rpm` archive files, removes unneeded orphaned dependencies, and purges residual configs.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('cleanup', 'packages')">
+                <i data-lucide="trash"></i> Clean Package Cache
+              </button>
+            </div>
+
+            <div class="cleanup-card">
+              <div class="clean-info">
+                <div class="metric-icon bg-indigo"><i data-lucide="file-text"></i></div>
+                <div>
+                  <h4>Systemd Journal Logs (Vacuum to 100MB)</h4>
+                  <p>Restricts bloated system logging databases to maximum 100MB and 7 days retention.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('cleanup', 'journal')">
+                <i data-lucide="scissors"></i> Vacuum Logs
+              </button>
+            </div>
+
+            <div class="cleanup-card">
+              <div class="clean-info">
+                <div class="metric-icon bg-purple"><i data-lucide="box"></i></div>
+                <div>
+                  <h4>Unused Flatpak Runtimes</h4>
+                  <p>Executes `flatpak uninstall --unused -y` to remove obsolete GNOME/KDE SDK runtimes.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('cleanup', 'flatpak')">
+                <i data-lucide="trash"></i> Prune Flatpaks
+              </button>
+            </div>
+
+            <div class="cleanup-card">
+              <div class="clean-info">
+                <div class="metric-icon bg-rose"><i data-lucide="layers"></i></div>
+                <div>
+                  <h4>Old Disabled Snap Revisions</h4>
+                  <p>Purges inactive previous Snap package revisions and limits future retention to 2 revisions, saving 10-30GB.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('cleanup', 'snap')">
+                <i data-lucide="trash-2"></i> Purge Old Snaps
+              </button>
+            </div>
+
+            <div class="cleanup-card">
+              <div class="clean-info">
+                <div class="metric-icon bg-amber"><i data-lucide="image"></i></div>
+                <div>
+                  <h4>Thumbnail & User Caches</h4>
+                  <p>Clears user thumbnail cache directories (`~/.cache/thumbnails`) and obsolete crash reports.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('cleanup', 'user_cache')">
+                <i data-lucide="trash"></i> Clean Thumbnails
+              </button>
+            </div>
+
+            <div class="cleanup-card">
+              <div class="clean-info">
+                <div class="metric-icon bg-emerald"><i data-lucide="hard-drive"></i></div>
+                <div>
+                  <h4>SSD TRIM Optimization</h4>
+                  <p>Triggers `fstrim -av` to inform the SSD controller of discarded blocks and enables weekly background TRIM timer.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('cleanup', 'ssd_trim')">
+                <i data-lucide="zap"></i> Run SSD TRIM
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 7: TROUBLESHOOT & REPAIR -->
+        <section id="tab-troubleshoot" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>🛠️ Emergency Troubleshooter & Auto-Repairs</h2>
+              <p>Automated diagnostics and 1-click repairs for broken package locks, Wi-Fi dropouts, audio failures, and home directory permissions.</p>
+            </div>
+            <button class="btn btn-primary" onclick="LinForge.runAction('troubleshoot', 'all')">
+              <i data-lucide="check-check"></i> Run All Automated Diagnostic Fixes
+            </button>
+          </div>
+
+          <div class="troubleshoot-list" id="troubleshoot-container">
+            <div class="loading-placeholder">Scanning system diagnostics...</div>
+          </div>
+        </section>
+
+        <!-- TAB 8: DEVELOPER STACKS -->
+        <section id="tab-developer" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>💻 Developer Stacks & Modern Shell Supercharger</h2>
+              <p>Deploy production-ready programming environments, container engines, and modern terminal tooling in a single click.</p>
+            </div>
+          </div>
+
+          <div class="dev-stacks-grid">
+            <div class="dev-stack-card">
+              <div class="dev-card-header">
+                <div class="metric-icon bg-emerald"><i data-lucide="globe"></i></div>
+                <div>
+                  <h4>Modern Web Dev Stack</h4>
+                  <p>Fast Node Manager (`fnm`), Node.js LTS, Bun runtime, Deno, and pnpm package manager.</p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="LinForge.runAction('developer', 'web')">
+                <i data-lucide="download"></i> Install Web Stack
+              </button>
+            </div>
+
+            <div class="dev-stack-card">
+              <div class="dev-card-header">
+                <div class="metric-icon bg-cyan"><i data-lucide="terminal"></i></div>
+                <div>
+                  <h4>Python AI & Data Stack</h4>
+                  <p>Astral `uv` (10-100x faster package manager), Python build dependencies, and Ollama local LLM runner.</p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="LinForge.runAction('developer', 'python')">
+                <i data-lucide="download"></i> Install Python & AI Stack
+              </button>
+            </div>
+
+            <div class="dev-stack-card">
+              <div class="dev-card-header">
+                <div class="metric-icon bg-rose"><i data-lucide="cpu"></i></div>
+                <div>
+                  <h4>Rust & C/C++ Systems Stack</h4>
+                  <p>`rustup`, `cargo`, `build-essential`, Clang, LLVM, CMake, Ninja, and GDB debugger.</p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="LinForge.runAction('developer', 'rust')">
+                <i data-lucide="download"></i> Install Systems Stack
+              </button>
+            </div>
+
+            <div class="dev-stack-card">
+              <div class="dev-card-header">
+                <div class="metric-icon bg-indigo"><i data-lucide="container"></i></div>
+                <div>
+                  <h4>DevOps & Containers Stack</h4>
+                  <p>Official Docker CE Engine, Docker Compose plugin, non-root user group permissions, Kubectl, and GitHub CLI (`gh`).</p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="LinForge.runAction('developer', 'devops')">
+                <i data-lucide="download"></i> Install DevOps Stack
+              </button>
+            </div>
+
+            <div class="dev-stack-card">
+              <div class="dev-card-header">
+                <div class="metric-icon bg-purple"><i data-lucide="sparkles"></i></div>
+                <div>
+                  <h4>Modern CLI Power Tools</h4>
+                  <p>`eza` (modern ls), `bat` (syntax-highlighted cat), `zoxide` (smart cd), `fzf`, `ripgrep`, and Starship cross-shell prompt.</p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="LinForge.runAction('developer', 'cli')">
+                <i data-lucide="download"></i> Install Modern CLI Tools
+              </button>
+            </div>
+
+            <div class="dev-stack-card">
+              <div class="dev-card-header">
+                <div class="metric-icon bg-amber"><i data-lucide="command"></i></div>
+                <div>
+                  <h4>Zsh + Oh-My-Zsh Supercharger</h4>
+                  <p>Zsh shell, Oh-My-Zsh framework, syntax highlighting, and autosuggestions plugin suite.</p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="LinForge.runAction('developer', 'zsh')">
+                <i data-lucide="download"></i> Install Oh-My-Zsh
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 9: UNIVERSAL MAINTENANCE -->
+        <section id="tab-maintenance" class="tab-pane">
+          <div class="tab-header">
+            <div>
+              <h2>🔄 Universal System Updates & Recovery</h2>
+              <p>Keep your system completely up to date across all package managers, create system restore snapshots, and manage backups.</p>
+            </div>
+          </div>
+
+          <div class="maintenance-grid">
+            <div class="maint-card hero-maint">
+              <div class="maint-header">
+                <div class="metric-icon bg-cyan"><i data-lucide="refresh-cw"></i></div>
+                <div>
+                  <h4>Universal 1-Click System Update</h4>
+                  <p>Simultaneously refreshes and updates Native packages (APT/DNF/Pacman) + Flatpaks + Snaps + Hardware Firmware (LVFS) in one coordinated flow.</p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="LinForge.runAction('maintenance', 'update_all')">
+                <i data-lucide="arrow-up-circle"></i> Run Universal Update
+              </button>
+            </div>
+
+            <div class="maint-card">
+              <div class="maint-header">
+                <div class="metric-icon bg-indigo"><i data-lucide="camera"></i></div>
+                <div>
+                  <h4>Create Timeshift System Restore Point</h4>
+                  <p>Creates an instant bootable OS snapshot via Timeshift before making experimental changes.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('maintenance', 'snapshot')">
+                <i data-lucide="save"></i> Create Snapshot
+              </button>
+            </div>
+
+            <div class="maint-card">
+              <div class="maint-header">
+                <div class="metric-icon bg-emerald"><i data-lucide="folder-archive"></i></div>
+                <div>
+                  <h4>Backup User Dotfiles</h4>
+                  <p>Archives `~/.bashrc`, `~/.zshrc`, `~/.config`, and shell configs into a timestamped archive in `~/LinForge-Backups/`.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('maintenance', 'dotfiles')">
+                <i data-lucide="archive"></i> Backup Dotfiles
+              </button>
+            </div>
+
+            <div class="maint-card">
+              <div class="maint-header">
+                <div class="metric-icon bg-rose"><i data-lucide="trash-2"></i></div>
+                <div>
+                  <h4>Clean Obsolete Linux Kernels</h4>
+                  <p>Safely purges unneeded old kernel images and headers, keeping active and previous backup kernels.</p>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="LinForge.runAction('maintenance', 'clean_kernels')">
+                <i data-lucide="trash-2"></i> Clean Old Kernels
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- App Detail Modal -->
+    <div class="modal-overlay" id="app-modal">
+      <div class="modal-card">
+        <button class="btn-modal-close" onclick="LinForge.closeAppModal()">&times;</button>
+        <div class="modal-header">
+          <div class="modal-app-icon" id="modal-app-icon">
+            <i data-lucide="box"></i>
+          </div>
+          <div>
+            <h3 id="modal-app-name">Application Name</h3>
+            <span class="modal-category-badge" id="modal-app-category">Category</span>
+          </div>
+        </div>
+        <div class="modal-body">
+          <p id="modal-app-desc" class="modal-desc">Application description text...</p>
+          <div class="modal-meta-row">
+            <span class="lbl">Installation Status:</span>
+            <span class="val" id="modal-app-status">Checking...</span>
+          </div>
+          <div class="modal-source-selector">
+            <span class="lbl">Preferred Package Source:</span>
+            <div class="source-options" id="modal-source-options"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="LinForge.closeAppModal()">Close</button>
+          <button class="btn btn-primary" id="modal-btn-install">
+            <i data-lucide="download"></i> Install Now
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="modal-overlay" id="shortcuts-modal">
+      <div class="modal-card">
+        <button class="btn-modal-close" onclick="LinForge.closeShortcutsModal()">&times;</button>
+        <div class="modal-header">
+          <div class="modal-app-icon bg-cyan">
+            <i data-lucide="keyboard"></i>
+          </div>
+          <div>
+            <h3>Keyboard Shortcuts</h3>
+            <p class="sub">Quick navigation commands</p>
+          </div>
+        </div>
+        <div class="modal-body">
+          <div class="shortcut-list">
+            <div class="shortcut-item"><kbd>/</kbd> <span>Focus Global Search Bar</span></div>
+            <div class="shortcut-item"><kbd>T</kbd> <span>Toggle Live Terminal Console Drawer</span></div>
+            <div class="shortcut-item"><kbd>?</kbd> <span>Open this Keyboard Shortcuts Guide</span></div>
+            <div class="shortcut-item"><kbd>Esc</kbd> <span>Close Modals / Deselect Search</span></div>
+            <div class="shortcut-item"><kbd>1-9</kbd> <span>Quick switch between workspace tabs</span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="LinForge.closeShortcutsModal()">Got It</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collapsible Real-Time Terminal Log Drawer -->
+    <div class="terminal-drawer" id="terminal-drawer">
+      <div class="terminal-header">
+        <div class="terminal-title">
+          <i data-lucide="terminal"></i>
+          <span>Live Execution Console</span>
+          <span class="pulse-indicator" id="term-pulse"></span>
+        </div>
+
+        <div class="terminal-filters">
+          <button class="term-tab active" data-filter="all">All</button>
+          <button class="term-tab" data-filter="system">System</button>
+          <button class="term-tab" data-filter="stdout">Stdout</button>
+          <button class="term-tab" data-filter="stderr">Errors</button>
+          <input type="text" id="term-filter-search" placeholder="Filter console logs..." />
+        </div>
+
+        <div class="terminal-controls">
+          <button class="btn-term" onclick="LinForge.copyTerminalLogs()" title="Copy Logs to Clipboard">
+            <i data-lucide="copy"></i> Copy
+          </button>
+          <button class="btn-term" onclick="LinForge.toggleTerminalFullscreen()" title="Toggle Fullscreen Terminal">
+            <i data-lucide="maximize-2" id="term-max-icon"></i>
+          </button>
+          <button class="btn-term" onclick="LinForge.cancelCurrentTask()" title="Stop Active Process">
+            <i data-lucide="square"></i> Stop
+          </button>
+          <button class="btn-term" onclick="LinForge.clearTerminal()" title="Clear Output">
+            <i data-lucide="trash-2"></i> Clear
+          </button>
+          <button class="btn-term" onclick="LinForge.toggleTerminal()" title="Minimize Console">
+            <i data-lucide="chevron-down"></i>
+          </button>
+        </div>
+      </div>
+      <div class="terminal-body" id="terminal-output">
+        <div class="term-line term-system">✨ LinForge Console Ready. Listening for background tasks...</div>
+      </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

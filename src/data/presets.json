@@ -1,0 +1,116 @@
+{
+  "presets": [
+    {
+      "id": "preset_gaming",
+      "name": "Ultimate Gaming Rig",
+      "tagline": "Maximum FPS, zero micro-stutter, and complete gaming launcher ecosystem",
+      "icon": "gamepad-2",
+      "color": "cyan",
+      "badge": "Recommended for Gamers",
+      "apps": [
+        "steam",
+        "heroic-games-launcher",
+        "lutris",
+        "protonup-qt",
+        "mangohud",
+        "gamemode",
+        "discord",
+        "obs-studio"
+      ],
+      "tweaks": [
+        "tweak_gaming_sysctl",
+        "tweak_swappiness_10",
+        "tweak_split_lock",
+        "tweak_zram",
+        "tweak_proton_ge_latest",
+        "tweak_bbr_tcp"
+      ],
+      "driver_actions": [
+        "controllers"
+      ],
+      "description": "Deploys Steam, Heroic, Lutris, ProtonUp-Qt, MangoHud overlay, GameMode daemon, Discord, and tunes kernel memory maps (vm.max_map_count=2147483642) and swappiness for stutter-free gaming."
+    },
+    {
+      "id": "preset_developer",
+      "name": "AI & Developer Workstation",
+      "tagline": "Full-stack web, Python AI, Docker containers, Rust, and modern shell",
+      "icon": "code",
+      "color": "indigo",
+      "badge": "Engineers & Data Scientists",
+      "apps": [
+        "vscode",
+        "docker-engine",
+        "postman",
+        "dbeaver",
+        "gitkraken",
+        "fastfetch",
+        "btop"
+      ],
+      "tweaks": [
+        "tweak_bbr_tcp",
+        "tweak_zram"
+      ],
+      "dev_stacks": [
+        "web",
+        "python",
+        "rust",
+        "cli"
+      ],
+      "description": "Installs VS Code, Docker CE Engine & Compose, Astral uv, Ollama local LLM runner, Node.js LTS (fnm), Rustup toolchain, Starship prompt, eza, bat, and zoxide."
+    },
+    {
+      "id": "preset_debloat_privacy",
+      "name": "Minimalist & Privacy Debloat",
+      "tagline": "Strip telemetry, boost battery life, optimize RAM, and secure DNS",
+      "icon": "shield-check",
+      "color": "emerald",
+      "badge": "Privacy & Clean Freak",
+      "apps": [
+        "librewolf",
+        "bitwarden",
+        "timeshift",
+        "bleachbit",
+        "flatseal"
+      ],
+      "tweaks": [
+        "tweak_disable_apport_telemetry",
+        "tweak_disable_ubuntu_pro_spam",
+        "tweak_secure_dns",
+        "tweak_enable_ufw",
+        "tweak_zram",
+        "tweak_swappiness_10"
+      ],
+      "cleanup_actions": [
+        "all"
+      ],
+      "description": "Removes Ubuntu crash reporter daemons, silences ESM command line spam, configures Cloudflare/Quad9 DNS-over-TLS, enables UFW firewall, purges old Snap revisions, and installs LibreWolf & Bitwarden."
+    },
+    {
+      "id": "preset_creator",
+      "name": "Content Creator Studio",
+      "tagline": "Pro video editing, 3D modeling, streaming, and audio mastering suite",
+      "icon": "video",
+      "color": "purple",
+      "badge": "Streamers & Artists",
+      "apps": [
+        "obs-studio",
+        "kdenlive",
+        "blender",
+        "gimp",
+        "inkscape",
+        "krita",
+        "audacity",
+        "handbrake",
+        "vlc"
+      ],
+      "tweaks": [
+        "tweak_zram",
+        "tweak_swappiness_10"
+      ],
+      "driver_actions": [
+        "pipewire"
+      ],
+      "description": "Configures OBS Studio with hardware NVENC/VA-API acceleration, Blender, Kdenlive, GIMP, Krita, Audacity, HandBrake, and optimizes low-latency PipeWire audio stack."
+    }
+  ]
+}
