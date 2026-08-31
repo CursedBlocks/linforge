@@ -24,14 +24,7 @@ echo -e "${NC}"
 echo -e "${BOLD}LinForge - The Ultimate Linux Setup & Maintenance Suite${NC}"
 echo -e "Starting automated installation & environment check...\n"
 
-# 1. Attach TTY if executed via piped curl/wget
-if [ ! -t 0 ]; then
-    if [ -e /dev/tty ]; then
-        exec < /dev/tty
-    fi
-fi
-
-# 2. Prevent running entirely as root
+# 1. Prevent running entirely as root
 if [ "$(id -u)" -eq 0 ]; then
     echo -e "${RED}[ERROR]${NC} Please do not run the installer as root (sudo bash install.sh)."
     echo "LinForge will prompt for sudo credentials only when required."
@@ -148,4 +141,8 @@ echo -e "• Launch anytime from your Application Menu or by typing: ${CYAN}linf
 echo -e "• Starting LinForge now...\n"
 
 # 8. Launch immediately
-python3 "$INSTALL_DIR/src/linforge.py" "$@"
+if [ -e /dev/tty ]; then
+    python3 "$INSTALL_DIR/src/linforge.py" "$@" < /dev/tty
+else
+    python3 "$INSTALL_DIR/src/linforge.py" "$@"
+fi
