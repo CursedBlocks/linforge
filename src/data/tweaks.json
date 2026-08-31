@@ -41,8 +41,8 @@
       "category": "memory",
       "description": "Installs and configures zramswap with modern Zstandard compression, giving your system 2x effective RAM capacity and preventing out-of-memory lockups.",
       "risk": "safe",
-      "apply_script": "apt-get update && apt-get install -y zram-tools\ncat << 'EOF' > /etc/default/zramswap\nALGO=zstd\nPERCENT=100\nPRIORITY=100\nEOF\nsystemctl restart zramswap.service || true",
-      "revert_script": "systemctl stop zramswap.service || true\napt-get remove -y --purge zram-tools || true"
+      "apply_script": "if command -v apt-get >/dev/null 2>&1; then\n  apt-get update -qq && apt-get install -y zram-tools\n  cat << 'EOF' > /etc/default/zramswap\nALGO=zstd\nPERCENT=100\nPRIORITY=100\nEOF\n  systemctl restart zramswap.service || true\nelif command -v dnf >/dev/null 2>&1; then\n  dnf install -y zram-generator-defaults zram-generator 2>/dev/null || true\n  systemctl restart systemd-zram-setup@zram0.service 2>/dev/null || true\nelif command -v pacman >/dev/null 2>&1; then\n  pacman -S --needed --noconfirm zram-generator 2>/dev/null || true\n  cat << 'EOF' > /etc/systemd/zram-generator.conf\n[zram0]\nzram-size = min(ram / 2, 8192)\ncompression-algorithm = zstd\nEOF\n  systemctl daemon-reload && systemctl start /dev/zram0 2>/dev/null || true\nfi",
+      "revert_script": "if command -v apt-get >/dev/null 2>&1; then\n  systemctl stop zramswap.service 2>/dev/null || true\n  apt-get remove -y --purge zram-tools 2>/dev/null || true\nfi\nrm -f /etc/systemd/zram-generator.conf /etc/default/zramswap"
     },
     {
       "id": "tweak_proton_ge_latest",
@@ -113,8 +113,8 @@
       "category": "network",
       "description": "Enables the Uncomplicated Firewall (UFW) with 'deny incoming, allow outgoing' policy. Automatically allows KDE Connect (ports 1714:1764) and SSH if active.",
       "risk": "safe",
-      "apply_script": "apt-get update && apt-get install -y ufw\nufw default deny incoming\nufw default allow outgoing\nufw allow 1714:1764/udp comment 'KDE Connect'\nufw allow 1714:1764/tcp comment 'KDE Connect'\nufw --force enable",
-      "revert_script": "ufw --force disable"
+      "apply_script": "if command -v apt-get >/dev/null 2>&1; then\n  apt-get update -qq && apt-get install -y ufw\nelif command -v dnf >/dev/null 2>&1; then\n  dnf install -y ufw 2>/dev/null || true\nelif command -v pacman >/dev/null 2>&1; then\n  pacman -S --needed --noconfirm ufw 2>/dev/null || true\nfi\nufw default deny incoming 2>/dev/null || true\nufw default allow outgoing 2>/dev/null || true\nufw allow 1714:1764/udp comment 'KDE Connect' 2>/dev/null || true\nufw allow 1714:1764/tcp comment 'KDE Connect' 2>/dev/null || true\nufw --force enable 2>/dev/null || true",
+      "revert_script": "ufw --force disable 2>/dev/null || true"
     },
     {
       "id": "tweak_secure_dns",

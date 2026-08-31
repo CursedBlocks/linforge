@@ -77,10 +77,15 @@ class AppManager:
         self._installed_native = set()
         if os.path.exists("/var/lib/dpkg/status"):
             try:
+                current_pkg = None
                 with open("/var/lib/dpkg/status", "r", encoding="utf-8", errors="ignore") as f:
                     for line in f:
                         if line.startswith("Package: "):
-                            self._installed_native.add(line.split(":", 1)[1].strip())
+                            current_pkg = line.split(":", 1)[1].strip()
+                        elif line.startswith("Status: ") and current_pkg:
+                            status_val = line.split(":", 1)[1].strip()
+                            if "installed" in status_val and "not-installed" not in status_val and "config-files" not in status_val:
+                                self._installed_native.add(current_pkg)
             except Exception:
                 pass
 
@@ -126,27 +131,22 @@ class AppManager:
             return False, "none"
 
         sources = app.get("sources", {})
-        binary_names = [app_id.lower()]
 
-        # Check binary hints
-        if "binary" in app:
-            binary_names.append(app["binary"].lower())
-        if "flatpak" in sources:
-            binary_names.append(sources["flatpak"].split(".")[-1].lower())
-
-        for b in binary_names:
-            if b in self._path_binaries or shutil.which(b):
-                self._installed_cache[app_id] = (True, "native", now)
-                return True, "native"
-
-        # Check Flatpak
+        # 1. Check Flatpak
         if "flatpak" in sources:
             flatpak_id = sources["flatpak"]
             if flatpak_id in self._installed_flatpaks:
                 self._installed_cache[app_id] = (True, "flatpak", now)
                 return True, "flatpak"
 
-        # Check Native Debian package
+        # 2. Check Snap
+        if "snap" in sources:
+            snap_pkg = sources["snap"].replace("--classic", "").strip()
+            if snap_pkg in self._installed_snaps:
+                self._installed_cache[app_id] = (True, "snap", now)
+                return True, "snap"
+
+        # 3. Check Native Debian package
         if "native_deb" in sources:
             src_def = sources["native_deb"]
             pkg_name = src_def if isinstance(src_def, str) else src_def.get("package", app_id)
@@ -154,12 +154,17 @@ class AppManager:
                 self._installed_cache[app_id] = (True, "native", now)
                 return True, "native"
 
-        # Check Snap
-        if "snap" in sources:
-            snap_pkg = sources["snap"].replace("--classic", "").strip()
-            if snap_pkg in self._installed_snaps:
-                self._installed_cache[app_id] = (True, "snap", now)
-                return True, "snap"
+        # 4. Check explicit binary hint
+        binary_names = []
+        if "binary" in app:
+            binary_names.append(app["binary"].lower())
+        else:
+            binary_names.append(app_id.lower())
+
+        for b in binary_names:
+            if b in self._path_binaries or shutil.which(b):
+                self._installed_cache[app_id] = (True, "native", now)
+                return True, "native"
 
         self._installed_cache[app_id] = (False, "none", now)
         return False, "none"
@@ -192,37 +197,42 @@ class AppManager:
         force_reinstall: bool = False,
         callback: Optional[Callable[[str, str], None]] = None
     ) -> CommandResult:
-        """Installs a single application with already-installed checks, multi-source resolution, and Flatpak fallback."""
+        """
+        Installs a single application with automatic dependency fulfillment,
+        intelligent source resolution, skip-if-installed detection, and Flatpak fallback.
+        """
         app = next((a for a in self._catalog.get("apps", []) if a["id"] == app_id), None)
         if not app:
             if callback:
                 callback("stderr", f"App '{app_id}' not found in catalog.")
-            return CommandResult(1, "", f"App '{app_id}' not found", 0.0, error_code="ERR_APP_NOT_FOUND", error_title="App Not Found in Catalog")
+            return CommandResult(1, "", f"App '{app_id}' not found in catalog.", 0.0, error_code="ERR_APP_NOT_FOUND", error_title="App Not Found")
 
-        installed, current_src = self.is_app_installed(app_id, force_refresh=True)
-        if installed and not force_reinstall:
+        # Skip already-installed apps unless force_reinstall is explicitly requested
+        is_installed, current_source = self.is_app_installed(app_id)
+        if is_installed and not force_reinstall:
             if callback:
-                callback("system", f"✓ {app['name']} is already installed ({current_src}). Skipping duplicate installation.")
-            return CommandResult(0, f"{app['name']} is already installed.", "", 0.0)
+                callback("system", f"✓ {app['name']} is already installed ({current_source}). Skipping.")
+            return CommandResult(0, f"{app['name']} is already installed.", "", 0.0, error_code="SUCCESS", error_title="Already Installed")
 
         sources = app.get("sources", {})
         pref = source_preference or app.get("default_source", "native_deb")
-        distro_family = self.detector.get_distro_info().get("family", "debian")
-
-        # Auto-fallback to flatpak on non-Debian distributions
-        if distro_family != "debian" and pref == "native_deb" and "flatpak" in sources:
-            pref = "flatpak"
 
         if callback:
-            callback("system", f"📦 Installing {app['name']} via {pref}...")
+            callback("system", f"📦 Installing {app['name']} (preferred source: {pref})...")
 
-        # Ensure essential prerequisites are present before installing
+        # Proactively ensure base system tools
         self.pkg_mgr.ensure_system_prerequisites(callback=callback)
 
         res: Optional[CommandResult] = None
 
         if pref == "flatpak" and "flatpak" in sources:
             res = self.pkg_mgr.install_flatpak(sources["flatpak"], callback=callback)
+
+        elif pref == "snap" and "snap" in sources and shutil.which("snap"):
+            snap_target = sources["snap"]
+            is_classic = "--classic" in snap_target
+            snap_pkg = snap_target.replace("--classic", "").strip()
+            res = self.pkg_mgr.install_snap(snap_pkg, classic=is_classic, callback=callback)
 
         elif pref == "native_deb" and "native_deb" in sources:
             src_def = sources["native_deb"]
@@ -252,7 +262,7 @@ class AppManager:
         elif "flatpak" in sources:
             res = self.pkg_mgr.install_flatpak(sources["flatpak"], callback=callback)
 
-        if not res and "snap" in sources and shutil.which("snap"):
+        elif "snap" in sources and shutil.which("snap"):
             snap_target = sources["snap"]
             is_classic = "--classic" in snap_target
             snap_pkg = snap_target.replace("--classic", "").strip()

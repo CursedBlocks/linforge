@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 from typing import Any, Dict, List, Optional
 
@@ -20,6 +21,7 @@ class SystemMonitor:
         self._last_cpu_times = None
         self._last_net_bytes = None
         self._last_net_time = None
+        self._metrics_lock = threading.Lock()
 
     def get_cpu_info(self) -> Dict[str, Any]:
         """Reads CPU model, core count, frequency, temperature, and live utilization."""
@@ -73,26 +75,27 @@ class SystemMonitor:
 
     def _calculate_cpu_usage(self) -> float:
         """Calculates CPU usage delta from /proc/stat."""
-        try:
-            with open("/proc/stat", "r") as f:
-                line = f.readline()
-            fields = [float(x) for x in line.strip().split()[1:8]]
-            idle = fields[3] + fields[4]
-            total = sum(fields)
+        with self._metrics_lock:
+            try:
+                with open("/proc/stat", "r") as f:
+                    line = f.readline()
+                fields = [float(x) for x in line.strip().split()[1:8]]
+                idle = fields[3] + fields[4]
+                total = sum(fields)
 
-            if self._last_cpu_times:
-                last_idle, last_total = self._last_cpu_times
-                idle_delta = idle - last_idle
-                total_delta = total - last_total
+                if self._last_cpu_times:
+                    last_idle, last_total = self._last_cpu_times
+                    idle_delta = idle - last_idle
+                    total_delta = total - last_total
+                    if total_delta > 0:
+                        self._last_cpu_times = (idle, total)
+                        usage = 100.0 * (1.0 - (idle_delta / total_delta))
+                        return max(0.0, min(100.0, round(usage, 1)))
+
                 self._last_cpu_times = (idle, total)
-                if total_delta > 0:
-                    usage = 100.0 * (1.0 - (idle_delta / total_delta))
-                    return max(0.0, min(100.0, round(usage, 1)))
-
-            self._last_cpu_times = (idle, total)
-        except Exception:
-            pass
-        return 0.0
+            except Exception:
+                pass
+            return 0.0
 
     def _read_cpu_temperature(self) -> Optional[float]:
         """Reads CPU temperature from sysfs hwmon sensors across all hardware vendors."""
@@ -246,42 +249,44 @@ class SystemMonitor:
 
     def get_network_stats(self) -> Dict[str, Any]:
         """Calculates live network throughput (KB/s) from /proc/net/dev."""
-        rx_bytes = 0
-        tx_bytes = 0
-        now = time.time()
+        with self._metrics_lock:
+            rx_bytes = 0
+            tx_bytes = 0
+            now = time.time()
 
-        try:
-            with open("/proc/net/dev", "r") as f:
-                lines = f.readlines()[2:]
-                for line in lines:
-                    parts = line.split(":")
-                    if len(parts) == 2:
-                        iface = parts[0].strip()
-                        if iface != "lo":
-                            stats = parts[1].split()
-                            rx_bytes += int(stats[0])
-                            tx_bytes += int(stats[8])
-        except Exception:
-            pass
+            try:
+                with open("/proc/net/dev", "r") as f:
+                    lines = f.readlines()[2:]
+                    for line in lines:
+                        parts = line.split(":")
+                        if len(parts) == 2:
+                            iface = parts[0].strip()
+                            if iface != "lo":
+                                stats = parts[1].split()
+                                if len(stats) >= 9:
+                                    rx_bytes += int(stats[0])
+                                    tx_bytes += int(stats[8])
+            except Exception:
+                pass
 
-        down_kbs = 0.0
-        up_kbs = 0.0
+            down_kbs = 0.0
+            up_kbs = 0.0
 
-        if self._last_net_bytes and self._last_net_time:
-            last_rx, last_tx = self._last_net_bytes
-            dt = max(0.1, now - self._last_net_time)
-            down_kbs = round((rx_bytes - last_rx) / 1024.0 / dt, 1)
-            up_kbs = round((tx_bytes - last_tx) / 1024.0 / dt, 1)
+            if self._last_net_bytes and self._last_net_time:
+                last_rx, last_tx = self._last_net_bytes
+                dt = max(0.1, now - self._last_net_time)
+                down_kbs = round((rx_bytes - last_rx) / 1024.0 / dt, 1)
+                up_kbs = round((tx_bytes - last_tx) / 1024.0 / dt, 1)
 
-        self._last_net_bytes = (rx_bytes, tx_bytes)
-        self._last_net_time = now
+            self._last_net_bytes = (rx_bytes, tx_bytes)
+            self._last_net_time = now
 
-        return {
-            "down_kbs": max(0.0, down_kbs),
-            "up_kbs": max(0.0, up_kbs),
-            "total_rx_mb": round(rx_bytes / (1024.0 * 1024.0), 1),
-            "total_tx_mb": round(tx_bytes / (1024.0 * 1024.0), 1)
-        }
+            return {
+                "down_kbs": max(0.0, down_kbs),
+                "up_kbs": max(0.0, up_kbs),
+                "total_rx_mb": round(rx_bytes / (1024.0 * 1024.0), 1),
+                "total_tx_mb": round(tx_bytes / (1024.0 * 1024.0), 1)
+            }
 
     def get_uptime_info(self) -> Dict[str, Any]:
         """Reads system uptime in seconds and human formatted string."""

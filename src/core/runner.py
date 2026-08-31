@@ -146,12 +146,16 @@ class CommandRunner:
             return self._current_process is not None and self._current_process.poll() is None
 
     def cancel_current(self) -> bool:
-        """Terminates the actively running process."""
+        """Terminates the actively running process tree."""
         with self._lock:
             if self._current_process and self._current_process.poll() is None:
                 self._is_cancelled = True
                 try:
-                    self._current_process.terminate()
+                    if os.name == "posix":
+                        import signal
+                        os.killpg(os.getpgid(self._current_process.pid), signal.SIGTERM)
+                    else:
+                        self._current_process.terminate()
                     threading.Timer(2.0, self._force_kill_if_alive).start()
                     return True
                 except Exception:
@@ -162,7 +166,11 @@ class CommandRunner:
         with self._lock:
             if self._current_process and self._current_process.poll() is None:
                 try:
-                    self._current_process.kill()
+                    if os.name == "posix":
+                        import signal
+                        os.killpg(os.getpgid(self._current_process.pid), signal.SIGKILL)
+                    else:
+                        self._current_process.kill()
                 except Exception:
                     pass
 
@@ -202,10 +210,12 @@ class CommandRunner:
         if use_sudo and os.name == "posix":
             is_root = (os.geteuid() == 0) if hasattr(os, "geteuid") else False
             if not is_root:
+                import shlex
+                quoted_cmd = shlex.quote(command)
                 if shutil.which("pkexec") and is_graphical:
-                    final_cmd = f"pkexec env DISPLAY={os.environ.get('DISPLAY', '')} XAUTHORITY={os.environ.get('XAUTHORITY', '')} WAYLAND_DISPLAY={os.environ.get('WAYLAND_DISPLAY', '')} bash -c {subprocess.list2cmdline([command])}"
+                    final_cmd = f"pkexec env DISPLAY={shlex.quote(os.environ.get('DISPLAY', ''))} XAUTHORITY={shlex.quote(os.environ.get('XAUTHORITY', ''))} WAYLAND_DISPLAY={shlex.quote(os.environ.get('WAYLAND_DISPLAY', ''))} REAL_USER={shlex.quote(real_user)} REAL_HOME={shlex.quote(real_home)} bash -c {quoted_cmd}"
                 elif shutil.which("sudo"):
-                    final_cmd = f"sudo -E bash -c {subprocess.list2cmdline([command])}"
+                    final_cmd = f"sudo env REAL_USER={shlex.quote(real_user)} REAL_HOME={shlex.quote(real_home)} bash -c {quoted_cmd}"
 
         if callback:
             callback("system", f"▶ Executing: {command[:120]}{'...' if len(command) > 120 else ''}")
@@ -220,7 +230,8 @@ class CommandRunner:
                 bufsize=1,
                 universal_newlines=True,
                 cwd=cwd,
-                env=exec_env
+                env=exec_env,
+                start_new_session=(os.name == "posix")
             )
 
             with self._lock:
@@ -309,10 +320,20 @@ class CommandRunner:
     ) -> CommandResult:
         """Executes a multi-line bash script block safely with user environment preservation."""
         script_header = """
-REAL_USER="${SUDO_USER:-$USER}"
-REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6 2>/dev/null || echo "/home/$REAL_USER")
+if [ -z "${REAL_USER:-}" ] || [ "${REAL_USER}" = "root" ]; then
+    if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER}" != "root" ]; then
+        REAL_USER="$SUDO_USER"
+    elif [ -n "${PKEXEC_UID:-}" ]; then
+        REAL_USER=$(id -nu "$PKEXEC_UID" 2>/dev/null || echo "root")
+    elif [ -n "${LOGNAME:-}" ] && [ "${LOGNAME}" != "root" ]; then
+        REAL_USER="$LOGNAME"
+    else
+        REAL_USER=$(logname 2>/dev/null || echo "$USER")
+    fi
+fi
+REAL_HOME=$(getent passwd "$REAL_USER" 2>/dev/null | cut -d: -f6 || echo "")
 if [ -z "$REAL_HOME" ] || [ ! -d "$REAL_HOME" ]; then
-    REAL_HOME="$HOME"
+    REAL_HOME=$(eval echo "~$REAL_USER" 2>/dev/null || echo "$HOME")
 fi
 export REAL_USER REAL_HOME
 """

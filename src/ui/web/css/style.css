@@ -567,6 +567,23 @@ body {
   background: rgba(244, 63, 94, 0.3);
 }
 
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: var(--accent-cyan);
+}
+
 /* ==========================================================================
    PRESETS HERO CARD & GRID
    ========================================================================== */

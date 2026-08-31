@@ -130,9 +130,13 @@ class PackageManager:
 
         try:
             # Native Package Manager checks
-            if mgr == "apt" and shutil.which("dpkg"):
-                res = subprocess.run(["dpkg", "-s", package_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                if res.returncode == 0:
+            if mgr == "apt" and shutil.which("dpkg-query"):
+                res = subprocess.run(["dpkg-query", "-W", "-f=${db:Status-Status}", package_name], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+                if res.returncode == 0 and res.stdout.strip() == "installed":
+                    return True, "native"
+            elif mgr == "apt" and shutil.which("dpkg"):
+                res = subprocess.run(["dpkg", "-s", package_name], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+                if res.returncode == 0 and "Status: install ok installed" in res.stdout:
                     return True, "native"
             elif mgr == "dnf" and shutil.which("rpm"):
                 res = subprocess.run(["rpm", "-q", package_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -300,9 +304,11 @@ class PackageManager:
         which automatically pulls all required shared libraries and dependencies.
         """
         self.ensure_system_prerequisites(callback=callback)
+        import re
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", app_name)
 
         script = f"""
-        TMP_DEB=$(mktemp /tmp/linforge_{app_name}_XXXXXX.deb)
+        TMP_DEB=$(mktemp /tmp/linforge_{safe_name}_XXXXXX.deb)
         trap "rm -f '$TMP_DEB'" EXIT
 
         echo "Downloading {app_name} package from verified vendor URL..."
@@ -335,6 +341,7 @@ class PackageManager:
         """
         Adds a third-party APT repository following modern deb822 standards
         and installs the requested package with dependency auto-resolution.
+        Handles both ASCII-armored and raw binary GPG keyrings.
         """
         self.ensure_system_prerequisites(callback=callback)
 
@@ -348,9 +355,17 @@ class PackageManager:
         mkdir -p {keyring_dir}
         chmod 0755 {keyring_dir}
         echo "Importing verified GPG signing key for {repo_name}..."
-        curl -fsSL "{gpg_key_url}" | gpg --dearmor -o "{key_file}.tmp"
-        mv "{key_file}.tmp" "{key_file}"
+        TMP_DOWNLOAD=$(mktemp /tmp/linforge_key_XXXXXX)
+        trap "rm -f '$TMP_DOWNLOAD'" EXIT
+        curl -fsSL "{gpg_key_url}" -o "$TMP_DOWNLOAD"
+
+        if grep -q -- "BEGIN PGP PUBLIC KEY BLOCK" "$TMP_DOWNLOAD" 2>/dev/null; then
+            gpg --batch --yes --dearmor -o "{key_file}" "$TMP_DOWNLOAD"
+        else
+            cp -f "$TMP_DOWNLOAD" "{key_file}"
+        fi
         chmod 0644 "{key_file}"
+        rm -f "$TMP_DOWNLOAD"
         echo "{sources_line}" > "{list_file}"
         apt-get update -qq
         {install_clause}

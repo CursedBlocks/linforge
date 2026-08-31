@@ -40,7 +40,7 @@ class DeveloperManager:
         '
         echo "Web Development stack installed successfully!"
         """
-        return self.runner.run_script_block(script, use_sudo=False, callback=callback)
+        return self.runner.run_script_block(script, use_sudo=True, callback=callback)
 
     def install_python_ai_stack(self, callback: Optional[Callable[[str, str], None]] = None) -> CommandResult:
         """Installs Astral uv (blazing-fast Python manager), PyTorch support, and Ollama."""

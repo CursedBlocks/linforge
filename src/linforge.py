@@ -71,7 +71,7 @@ Examples:
     # 1-Click Operations
     parser.add_argument("--preset", type=str, choices=["gaming", "developer", "debloat", "creator"], help="Apply a full system preset transformation profile")
     parser.add_argument("--update-all", action="store_true", help="Run Universal 1-Click System Update")
-    parser.add_argument("--clean", action="store_true", help="Run Full Deep System Cleanup")
+    parser.add_argument("--clean", "--cleanup", action="store_true", help="Run Full Deep System Cleanup")
     parser.add_argument("--gaming", action="store_true", help="Apply recommended Gaming & Low Latency tweaks")
     parser.add_argument("--fix-audio", action="store_true", help="Reset & configure PipeWire low-latency audio stack")
     parser.add_argument("--fix-packages", action="store_true", help="Unlock APT and repair broken package dependencies")
@@ -157,14 +157,14 @@ Examples:
     # Check if graphical display session is active
     has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
-    if args.gui or has_display:
+    if args.gui or args.headless or has_display:
         try:
             launch_gui(port=args.port, open_browser=not args.headless)
         except Exception as e:
-            print(f"[Notice] GUI launch failed ({e}), switching to interactive TUI...")
+            print(f"[Notice] Server/GUI launch failed ({e}), switching to interactive TUI...")
             run_tui()
     else:
-        # Fallback to TUI if in pure SSH or headless terminal
+        # Fallback to TUI if in pure SSH or headless terminal without --headless/--gui
         run_tui()
 
 

@@ -42,6 +42,15 @@ const LinForge = {
     // Live Telemetry Polling (every 2 seconds)
     setInterval(() => this.pollMetrics(), 2000);
 
+    // Backdrop modal click dismissal
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('show');
+        }
+      });
+    });
+
     if (window.lucide) {
       lucide.createIcons();
     }
@@ -241,8 +250,10 @@ const LinForge = {
   handleTaskResult(taskName, result) {
     if (result.success) {
       this.showToast(`${taskName} finished successfully!`, 'success');
-      // Refresh apps and system status
+      // Refresh apps, tweaks, troubleshooters, and system status
       this.loadApps(true);
+      this.loadTweaks();
+      this.loadTroubleshooters();
       this.loadSystemData();
     } else {
       const code = result.error_code || `ERR_EXIT_${result.exit_code || 1}`;
@@ -479,6 +490,9 @@ const LinForge = {
         return;
       }
 
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (document.querySelector('.modal-overlay.show') && e.key !== 'Escape') return;
+
       const tabKeys = ['dashboard', 'presets', 'apps', 'tweaks', 'drivers', 'cleanup', 'troubleshoot', 'developer', 'maintenance'];
       const num = parseInt(e.key);
       if (!isNaN(num) && num >= 1 && num <= tabKeys.length) {
@@ -497,6 +511,7 @@ const LinForge = {
       } else if (e.key === 'Escape') {
         this.closeAppModal();
         this.closeShortcutsModal();
+        this.closeDialog();
       }
     });
   },
@@ -509,6 +524,11 @@ const LinForge = {
       const term = e.target.value.toLowerCase().trim();
       if (this.activeTab !== 'apps' && term.length > 0) {
         this.switchTab('apps');
+      }
+      if (term.length > 0) {
+        document.querySelectorAll('#app-category-pills .pill').forEach(p =>
+          p.classList.toggle('active', p.getAttribute('data-category') === 'all')
+        );
       }
       this.renderApps(term);
     });
@@ -535,6 +555,11 @@ const LinForge = {
     document.getElementById('modal-app-name').textContent = app.name;
     document.getElementById('modal-app-category').textContent = app.category.toUpperCase();
     document.getElementById('modal-app-desc').textContent = app.description;
+
+    const iconContainer = document.getElementById('modal-app-icon');
+    if (iconContainer) {
+      iconContainer.innerHTML = `<i data-lucide="${app.icon || 'box'}"></i>`;
+    }
 
     const pillEl = document.getElementById('modal-app-installed-pill');
     if (pillEl) {
@@ -815,7 +840,8 @@ const LinForge = {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#app-category-pills .pill').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
-        this.renderApps();
+        const currentSearch = document.getElementById('global-search')?.value.toLowerCase().trim() || '';
+        this.renderApps(currentSearch);
       });
       container.appendChild(btn);
     });

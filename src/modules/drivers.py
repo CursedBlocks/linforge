@@ -185,9 +185,10 @@ context.properties = {
 }
 EOF
 
-        WP_DIR="${REAL_HOME:-$HOME}/.config/wireplumber/wireplumber.conf.d"
-        mkdir -p "$WP_DIR"
-        cat << 'EOF' > "$WP_DIR/51-disable-suspension.conf"
+        # WirePlumber 0.5+ SPA-JSON config (Ubuntu 24.04+, Fedora 40+, Arch)
+        WP_DIR_05="${REAL_HOME:-$HOME}/.config/wireplumber/wireplumber.conf.d"
+        mkdir -p "$WP_DIR_05"
+        cat << 'EOF' > "$WP_DIR_05/51-disable-suspension.conf"
 monitor.alsa.rules = [
   {
     matches = [ { node.name = "~alsa_input.*" }, { node.name = "~alsa_output.*" } ]
@@ -198,6 +199,16 @@ monitor.alsa.rules = [
     }
   }
 ]
+EOF
+
+        # WirePlumber 0.4.x Lua config (Ubuntu 22.04 LTS / Debian 12)
+        WP_DIR_04="${REAL_HOME:-$HOME}/.config/wireplumber/main.lua.d"
+        mkdir -p "$WP_DIR_04"
+        cat << 'EOF' > "$WP_DIR_04/51-disable-suspension.lua"
+table.insert(alsa_monitor.rules, {
+  matches = { { { "node.name", "matches", "alsa_*" } } },
+  apply_properties = { ["session.suspend-timeout-seconds"] = 0 }
+})
 EOF
 
         chown -R "$REAL_USER:$REAL_USER" "${REAL_HOME:-$HOME}/.config/pipewire" "${REAL_HOME:-$HOME}/.config/wireplumber" 2>/dev/null || true
@@ -275,8 +286,8 @@ EOF
             script = """
             echo "Installing XanMod High-Performance Gaming Kernel for Ubuntu/Debian..."
             mkdir -p /etc/apt/keyrings
-            curl -fsSL https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg
-            echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' > /etc/apt/sources.list.d/xanmod-release.list
+            curl -fsSL https://dl.xanmod.org/archive.key | gpg --batch --yes --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg
+            echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] https://deb.xanmod.org releases main' > /etc/apt/sources.list.d/xanmod-release.list
             apt-get update -qq
             apt-get install -y linux-xanmod-x64v3 || apt-get install -y linux-xanmod
             update-grub 2>/dev/null || true

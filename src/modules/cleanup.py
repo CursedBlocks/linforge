@@ -98,7 +98,7 @@ class CleanupManager:
         """Cleans user thumbnail caches and crash logs."""
         script = """
         echo "Cleaning thumbnail caches and crash dumps..."
-        rm -rf ~/.cache/thumbnails/* ~/.thumbnails/* ~/.cache/crash/* /var/crash/* 2>/dev/null || true
+        rm -rf "${REAL_HOME:-$HOME}/.cache/thumbnails"/* "${REAL_HOME:-$HOME}/.thumbnails"/* "${REAL_HOME:-$HOME}/.cache/crash"/* /var/crash/* 2>/dev/null || true
         echo "User caches cleaned!"
         """
         return self.runner.run_script_block(script, use_sudo=False, callback=callback)

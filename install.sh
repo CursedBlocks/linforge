@@ -107,12 +107,11 @@ chmod +x "$BIN_DIR/linforge"
 # Add ~/.local/bin to PATH if missing in current environment
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$HOME/.local/bin:$PATH"
-    if [ -f "$HOME/.bashrc" ] && ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.bashrc"; then
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
-    fi
-    if [ -f "$HOME/.zshrc" ] && ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.zshrc"; then
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
-    fi
+    for rcfile in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
+        if [ -f "$rcfile" ] && ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$rcfile"; then
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rcfile"
+        fi
+    done
 fi
 
 # 7. Install Icon & Desktop Launcher Entry
@@ -141,7 +140,7 @@ echo -e "• Launch anytime from your Application Menu or by typing: ${CYAN}linf
 echo -e "• Starting LinForge now...\n"
 
 # 8. Launch immediately
-if [ -e /dev/tty ]; then
+if [ -t 0 ] && [ -e /dev/tty ]; then
     python3 "$INSTALL_DIR/src/linforge.py" "$@" < /dev/tty
 else
     python3 "$INSTALL_DIR/src/linforge.py" "$@"

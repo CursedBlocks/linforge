@@ -52,7 +52,7 @@
       "sources": {
         "native_deb": {
           "type": "script",
-          "command": "add-apt-repository -y ppa:mozillateam/ppa && echo 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001' > /etc/apt/preferences.d/mozilla-firefox && apt-get update && apt-get install -y --target-release 'o=LP-PPA-mozillateam' firefox"
+          "command": "add-apt-repository -y ppa:mozillateam/ppa && printf 'Package: *\\nPin: release o=LP-PPA-mozillateam\\nPin-Priority: 1001\\n' > /etc/apt/preferences.d/mozilla-firefox && apt-get update && apt-get install -y --target-release 'o=LP-PPA-mozillateam' firefox"
         },
         "flatpak": "org.mozilla.firefox"
       },
@@ -152,7 +152,7 @@
       "sources": {
         "native_deb": {
           "type": "script",
-          "command": "mkdir -p ~/.local/bin ~/.local/share/applications && curl -fsSL 'https://downloader.cursor.sh/linux/appImage/x64' -o ~/.local/bin/cursor.AppImage && chmod +x ~/.local/bin/cursor.AppImage && printf '[Desktop Entry]\\nName=Cursor\\nExec=%s/.local/bin/cursor.AppImage\\nIcon=utilities-terminal\\nType=Application\\nCategories=Development;' \"$HOME\" > ~/.local/share/applications/cursor.desktop"
+          "command": "TARGET_HOME=\"${REAL_HOME:-$HOME}\"; TARGET_USER=\"${REAL_USER:-$USER}\"; mkdir -p \"$TARGET_HOME/.local/bin\" \"$TARGET_HOME/.local/share/applications\" && curl -fsSL 'https://downloader.cursor.sh/linux/appImage/x64' -o \"$TARGET_HOME/.local/bin/cursor.AppImage\" && chmod +x \"$TARGET_HOME/.local/bin/cursor.AppImage\" && chown \"$TARGET_USER:$TARGET_USER\" \"$TARGET_HOME/.local/bin/cursor.AppImage\" && printf '[Desktop Entry]\\nName=Cursor\\nExec=%s/.local/bin/cursor.AppImage\\nIcon=utilities-terminal\\nType=Application\\nCategories=Development;\\n' \"$TARGET_HOME\" > \"$TARGET_HOME/.local/share/applications/cursor.desktop\" && chown \"$TARGET_USER:$TARGET_USER\" \"$TARGET_HOME/.local/share/applications/cursor.desktop\""
         }
       },
       "default_source": "native_deb"

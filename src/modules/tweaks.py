@@ -75,8 +75,11 @@ class TweaksManager:
             return os.path.exists("/etc/systemd/resolved.conf.d/linforge-dns.conf")
         elif tweak_id == "tweak_disable_apport_telemetry":
             if os.path.exists("/etc/default/apport"):
-                with open("/etc/default/apport", "r") as f:
-                    return "enabled=0" in f.read()
+                try:
+                    with open("/etc/default/apport", "r", encoding="utf-8") as f:
+                        return "enabled=0" in f.read()
+                except Exception:
+                    return False
 
         return False
 

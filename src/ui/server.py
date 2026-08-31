@@ -148,7 +148,7 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
                     except queue.Empty:
                         self.wfile.write(b": heartbeat\n\n")
                         self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
                 pass
             finally:
                 self.server_instance.remove_log_listener(log_q)
@@ -193,8 +193,25 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
         if path == "/api/cancel":
             success = self.server_instance.runner.cancel_current()
             self._send_json({"cancelled": success})
+            return
 
-        elif path == "/api/presets/apply":
+        # Guard mutating API endpoints against concurrent task collisions
+        mutating_endpoints = [
+            "/api/presets/apply", "/api/apps/install", "/api/apps/uninstall",
+            "/api/tweaks/apply", "/api/tweaks/revert", "/api/drivers/action",
+            "/api/cleanup/action", "/api/troubleshoot/run", "/api/developer/action",
+            "/api/maintenance/action"
+        ]
+        if path in mutating_endpoints and self.server_instance.runner.is_running:
+            self._send_json({
+                "status": "error",
+                "error_code": "ERR_TASK_ALREADY_RUNNING",
+                "error_title": "Another Task is Currently Running",
+                "error_suggestion": "Wait for the active task to finish, or click Cancel in the bottom terminal drawer."
+            }, status=409)
+            return
+
+        if path == "/api/presets/apply":
             preset_id = body.get("preset_id")
 
             def run_job():
@@ -288,7 +305,7 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
                 elif action == "controllers":
                     res = self.server_instance.drivers_mgr.setup_game_controllers(callback=self.server_instance.broadcast_log)
                 elif action == "openrgb":
-                    res = self.server_instance.drivers_mgr.setup_openrgb_permissions(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.setup_openrgb_udev(callback=self.server_instance.broadcast_log)
                 elif action == "autocpufreq":
                     res = self.server_instance.drivers_mgr.install_autocpufreq_battery(callback=self.server_instance.broadcast_log)
                 elif action == "xanmod":
@@ -306,19 +323,23 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
             def run_job():
                 res: Optional[CommandResult] = None
                 if action == "all":
-                    res = self.server_instance.cleanup_mgr.run_full_cleanup(callback=self.server_instance.broadcast_log)
-                elif action == "package_cache":
+                    res_map = self.server_instance.cleanup_mgr.run_full_cleanup(callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result("Full System Cleanup", {"success": True, "exit_code": 0})
+                    return
+                elif action in ["package_cache", "packages"]:
                     res = self.server_instance.cleanup_mgr.clean_package_cache(callback=self.server_instance.broadcast_log)
                 elif action == "journal":
                     res = self.server_instance.cleanup_mgr.vacuum_systemd_journal(callback=self.server_instance.broadcast_log)
-                elif action == "old_kernels":
-                    res = self.server_instance.cleanup_mgr.remove_old_kernels(callback=self.server_instance.broadcast_log)
-                elif action == "flatpak_unused":
+                elif action in ["old_kernels", "clean_kernels"]:
+                    res = self.server_instance.maint_mgr.clean_old_kernels(callback=self.server_instance.broadcast_log)
+                elif action in ["flatpak_unused", "flatpak"]:
                     res = self.server_instance.cleanup_mgr.clean_flatpak_unused(callback=self.server_instance.broadcast_log)
-                elif action == "snap_disabled":
-                    res = self.server_instance.cleanup_mgr.clean_snap_old_revisions(callback=self.server_instance.broadcast_log)
-                elif action == "fstrim":
-                    res = self.server_instance.cleanup_mgr.run_fstrim(callback=self.server_instance.broadcast_log)
+                elif action in ["snap_disabled", "snap_old_revisions", "snap"]:
+                    res = self.server_instance.cleanup_mgr.purge_snap_old_revisions(callback=self.server_instance.broadcast_log)
+                elif action in ["fstrim", "ssd_trim"]:
+                    res = self.server_instance.cleanup_mgr.run_ssd_trim(callback=self.server_instance.broadcast_log)
+                elif action in ["user_cache", "user_caches"]:
+                    res = self.server_instance.cleanup_mgr.clean_user_caches(callback=self.server_instance.broadcast_log)
 
                 if res:
                     self.server_instance.broadcast_task_result(f"Cleanup: {action}", res.to_dict())
@@ -327,14 +348,12 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
             self._send_json({"status": "started"})
 
         elif path == "/api/troubleshoot/run":
-            fix_id = body.get("fix_id")
-            action = body.get("action")
+            fix_id = body.get("fix_id") or body.get("action")
 
             def run_job():
-                res: Optional[CommandResult] = None
-                if action == "all":
-                    res_map = self.server_instance.trouble_mgr.run_all_diagnostics_and_fixes(callback=self.server_instance.broadcast_log)
-                    self.server_instance.broadcast_task_result("Full Diagnostics & Fixes", {"success": True, "exit_code": 0})
+                if fix_id == "all":
+                    res_map = self.server_instance.trouble_mgr.run_all_fixes(callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result("Full Diagnostics & Repairs", {"success": True, "exit_code": 0})
                 elif fix_id:
                     res = self.server_instance.trouble_mgr.run_fix(fix_id, callback=self.server_instance.broadcast_log)
                     self.server_instance.broadcast_task_result(f"Troubleshoot: {fix_id}", res.to_dict())
@@ -349,13 +368,13 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
                 res: Optional[CommandResult] = None
                 if action == "web":
                     res = self.server_instance.dev_mgr.install_web_stack(callback=self.server_instance.broadcast_log)
-                elif action == "python_ai":
+                elif action in ["python_ai", "python"]:
                     res = self.server_instance.dev_mgr.install_python_ai_stack(callback=self.server_instance.broadcast_log)
                 elif action == "rust":
                     res = self.server_instance.dev_mgr.install_rust_systems_stack(callback=self.server_instance.broadcast_log)
-                elif action == "docker":
-                    res = self.server_instance.dev_mgr.install_docker_engine(callback=self.server_instance.broadcast_log)
-                elif action == "modern_cli":
+                elif action in ["docker", "devops"]:
+                    res = self.server_instance.dev_mgr.install_devops_stack(callback=self.server_instance.broadcast_log)
+                elif action in ["modern_cli", "cli"]:
                     res = self.server_instance.dev_mgr.install_modern_cli_tools(callback=self.server_instance.broadcast_log)
                 elif action == "zsh":
                     res = self.server_instance.dev_mgr.install_zsh_ohmyzsh(callback=self.server_instance.broadcast_log)
@@ -371,12 +390,14 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
 
             def run_job():
                 res: Optional[CommandResult] = None
-                if action == "update_all":
-                    res = self.server_instance.maint_mgr.run_full_system_update(callback=self.server_instance.broadcast_log)
-                elif action == "snapshot":
+                if action in ["update_all", "full_update"]:
+                    res = self.server_instance.maint_mgr.run_universal_update(callback=self.server_instance.broadcast_log)
+                elif action in ["snapshot", "timeshift"]:
                     res = self.server_instance.maint_mgr.create_timeshift_snapshot(callback=self.server_instance.broadcast_log)
-                elif action == "clean_kernels":
+                elif action in ["clean_kernels", "old_kernels"]:
                     res = self.server_instance.maint_mgr.clean_old_kernels(callback=self.server_instance.broadcast_log)
+                elif action in ["dotfiles", "backup_dotfiles"]:
+                    res = self.server_instance.maint_mgr.backup_user_dotfiles(callback=self.server_instance.broadcast_log)
 
                 if res:
                     self.server_instance.broadcast_task_result(f"Maintenance: {action}", res.to_dict())
