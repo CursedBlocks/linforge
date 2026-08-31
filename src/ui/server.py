@@ -1,7 +1,7 @@
 """
 LinForge - Embedded Web & API Server
 Lightweight zero-dependency HTTP server providing REST APIs, SSE real-time terminal log streaming,
-and static frontend asset serving for the LinForge GUI.
+task completion telemetry with structured error diagnostic codes, and static frontend asset serving.
 """
 
 import json
@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, List, Optional
 try:
     from core.detector import SystemDetector
     from core.system_info import SystemMonitor
-    from core.runner import CommandRunner
+    from core.runner import CommandRunner, CommandResult
     from modules.apps import AppManager
     from modules.drivers import DriverManager
     from modules.tweaks import TweaksManager
@@ -31,7 +31,7 @@ try:
 except (ImportError, ValueError):
     from ..core.detector import SystemDetector
     from ..core.system_info import SystemMonitor
-    from ..core.runner import CommandRunner
+    from ..core.runner import CommandRunner, CommandResult
     from ..modules.apps import AppManager
     from ..modules.drivers import DriverManager
     from ..modules.tweaks import TweaksManager
@@ -42,36 +42,45 @@ except (ImportError, ValueError):
     from ..modules.presets import PresetsManager
 
 
-class LinForgeHandler(SimpleHTTPRequestHandler):
-    """Custom HTTP Request Handler serving REST APIs, SSE logs, and static files."""
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
+    """Handles requests in separate threads for non-blocking execution."""
+    daemon_threads = True
+    allow_reuse_address = True
 
-    server_instance = None
+
+class LinForgeHandler(SimpleHTTPRequestHandler):
+    """Custom request handler dispatching API endpoints and static assets."""
+    server_instance: 'LinForgeServer' = None  # Injected on server initialization
 
     def log_message(self, format, *args):
+        # Silence default request access logs in console
         pass
 
     def _send_json(self, data: Any, status: int = 200):
-        body = json.dumps(data).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Cache-Control", "no-cache")
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            body = json.dumps(data).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+            pass
 
     def _read_json_body(self) -> Dict[str, Any]:
         try:
-            content_len = int(self.headers.get("Content-Length", 0))
-            if content_len > 0:
-                raw = self.rfile.read(content_len).decode("utf-8")
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length > 0:
+                raw = self.rfile.read(content_length).decode("utf-8")
                 return json.loads(raw)
         except Exception:
             pass
         return {}
 
     def do_OPTIONS(self):
-        self.send_response(204)
+        self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
@@ -83,12 +92,11 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
 
         if path == "/api/system":
-            summary = self.server_instance.detector.get_full_summary()
-            metrics = self.server_instance.monitor.get_all_metrics()
-            self._send_json({"summary": summary, "metrics": metrics})
+            summary = self.server_instance.monitor.get_full_summary()
+            self._send_json(summary)
 
         elif path == "/api/metrics":
-            metrics = self.server_instance.monitor.get_all_metrics()
+            metrics = self.server_instance.monitor.get_live_metrics()
             self._send_json(metrics)
 
         elif path == "/api/presets":
@@ -96,25 +104,25 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
             self._send_json({"presets": presets})
 
         elif path == "/api/apps":
-            cat = query.get("category", [None])[0]
-            search = query.get("search", [None])[0]
-            categories = self.server_instance.apps_mgr.get_categories()
-            apps = self.server_instance.apps_mgr.get_apps(category=cat, search=search)
-            self._send_json({"categories": categories, "apps": apps})
+            cat = query.get("category", ["all"])[0]
+            search = query.get("search", [""])[0]
+            refresh = query.get("refresh", ["false"])[0].lower() == "true"
+            apps = self.server_instance.apps_mgr.get_apps(category=cat, search=search, refresh_installed=refresh)
+            cats = self.server_instance.apps_mgr.get_categories()
+            self._send_json({"categories": cats, "apps": apps})
 
         elif path == "/api/tweaks":
-            cat = query.get("category", [None])[0]
-            categories = self.server_instance.tweaks_mgr.get_categories()
-            tweaks = self.server_instance.tweaks_mgr.get_tweaks(category=cat)
-            self._send_json({"categories": categories, "tweaks": tweaks})
+            tweaks = self.server_instance.tweaks_mgr.get_tweaks()
+            cats = self.server_instance.tweaks_mgr.get_categories()
+            self._send_json({"categories": cats, "tweaks": tweaks})
 
         elif path == "/api/drivers":
             status = self.server_instance.drivers_mgr.get_hardware_status()
             self._send_json(status)
 
         elif path == "/api/troubleshoot":
-            items = self.server_instance.troubleshoot_mgr.get_troubleshooters()
-            self._send_json({"troubleshooters": items})
+            fixes = self.server_instance.trouble_mgr.get_fixes()
+            self._send_json({"fixes": fixes, "troubleshooters": fixes})
 
         elif path == "/api/logs/stream":
             self.send_response(200)
@@ -191,7 +199,8 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
 
             def run_job():
                 if preset_id:
-                    self.server_instance.presets_mgr.apply_preset(preset_id, callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.presets_mgr.apply_preset(preset_id, callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result(f"Preset ({preset_id})", res)
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
@@ -199,13 +208,38 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
         elif path == "/api/apps/install":
             app_id = body.get("app_id")
             source = body.get("source")
+            force = body.get("force_reinstall", False)
             batch = body.get("batch", [])
 
             def run_job():
                 if batch:
-                    self.server_instance.apps_mgr.install_batch(batch, callback=self.server_instance.broadcast_log)
+                    res_map = self.server_instance.apps_mgr.install_batch(batch, callback=self.server_instance.broadcast_log)
+                    failed = [app for app, r in res_map.items() if not r.success]
+                    overall_success = len(failed) == 0
+                    summary_res = {
+                        "success": overall_success,
+                        "exit_code": 0 if overall_success else 1,
+                        "error_code": "ERR_BATCH_PARTIAL_FAIL" if not overall_success else "SUCCESS",
+                        "error_title": f"Batch Installation Completed ({len(batch) - len(failed)}/{len(batch)} successful)",
+                        "error_suggestion": f"Failed apps: {', '.join(failed)}. Try installing them individually via Flatpak.",
+                        "stdout": "",
+                        "stderr": f"Failed on: {failed}" if failed else ""
+                    }
+                    self.server_instance.broadcast_task_result(f"Batch ({len(batch)} apps)", summary_res)
                 elif app_id:
-                    self.server_instance.apps_mgr.install_app(app_id, source_preference=source, callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.apps_mgr.install_app(app_id, source_preference=source, force_reinstall=force, callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result(f"App Install: {app_id}", res.to_dict())
+
+            threading.Thread(target=run_job, daemon=True).start()
+            self._send_json({"status": "started"})
+
+        elif path == "/api/apps/uninstall":
+            app_id = body.get("app_id")
+
+            def run_job():
+                if app_id:
+                    res = self.server_instance.apps_mgr.uninstall_app(app_id, callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result(f"App Uninstall: {app_id}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
@@ -216,9 +250,11 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
 
             def run_job():
                 if batch:
-                    self.server_instance.tweaks_mgr.apply_batch(batch, callback=self.server_instance.broadcast_log)
+                    res_map = self.server_instance.tweaks_mgr.apply_batch(batch, callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result("Batch Tweaks", {"success": True, "exit_code": 0})
                 elif tweak_id:
-                    self.server_instance.tweaks_mgr.apply_tweak(tweak_id, callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.tweaks_mgr.apply_tweak(tweak_id, callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result(f"Tweak: {tweak_id}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
@@ -228,7 +264,8 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
 
             def run_job():
                 if tweak_id:
-                    self.server_instance.tweaks_mgr.revert_tweak(tweak_id, callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.tweaks_mgr.revert_tweak(tweak_id, callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result(f"Revert Tweak: {tweak_id}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
@@ -237,46 +274,54 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
             action = body.get("action")
 
             def run_job():
+                res: Optional[CommandResult] = None
                 if action == "nvidia":
-                    self.server_instance.drivers_mgr.install_nvidia_recommended(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.install_nvidia_recommended(callback=self.server_instance.broadcast_log)
                 elif action == "amd":
-                    self.server_instance.drivers_mgr.install_amd_kisak_mesa(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.install_amd_kisak_mesa(callback=self.server_instance.broadcast_log)
                 elif action == "broadcom":
-                    self.server_instance.drivers_mgr.install_broadcom_wifi(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.install_broadcom_wifi(callback=self.server_instance.broadcast_log)
                 elif action == "realtek":
-                    self.server_instance.drivers_mgr.install_realtek_wifi(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.install_realtek_wifi(callback=self.server_instance.broadcast_log)
                 elif action == "pipewire":
-                    self.server_instance.drivers_mgr.setup_pipewire_audio(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.setup_pipewire_audio(callback=self.server_instance.broadcast_log)
                 elif action == "controllers":
-                    self.server_instance.drivers_mgr.setup_game_controllers(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.setup_game_controllers(callback=self.server_instance.broadcast_log)
                 elif action == "openrgb":
-                    self.server_instance.drivers_mgr.setup_openrgb_udev(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.setup_openrgb_permissions(callback=self.server_instance.broadcast_log)
                 elif action == "autocpufreq":
-                    self.server_instance.drivers_mgr.install_autocpufreq_battery(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.install_autocpufreq_battery(callback=self.server_instance.broadcast_log)
                 elif action == "xanmod":
-                    self.server_instance.drivers_mgr.install_xanmod_kernel(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.drivers_mgr.install_xanmod_kernel(callback=self.server_instance.broadcast_log)
+
+                if res:
+                    self.server_instance.broadcast_task_result(f"Driver Action: {action}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
 
         elif path == "/api/cleanup/action":
-            action = body.get("action")
+            action = body.get("action", "all")
 
             def run_job():
+                res: Optional[CommandResult] = None
                 if action == "all":
-                    self.server_instance.cleanup_mgr.run_full_cleanup(callback=self.server_instance.broadcast_log)
-                elif action == "packages":
-                    self.server_instance.cleanup_mgr.clean_package_cache(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.cleanup_mgr.run_full_cleanup(callback=self.server_instance.broadcast_log)
+                elif action == "package_cache":
+                    res = self.server_instance.cleanup_mgr.clean_package_cache(callback=self.server_instance.broadcast_log)
                 elif action == "journal":
-                    self.server_instance.cleanup_mgr.vacuum_systemd_journal(callback=self.server_instance.broadcast_log)
-                elif action == "flatpak":
-                    self.server_instance.cleanup_mgr.clean_flatpak_unused(callback=self.server_instance.broadcast_log)
-                elif action == "snap":
-                    self.server_instance.cleanup_mgr.purge_snap_old_revisions(callback=self.server_instance.broadcast_log)
-                elif action == "user_cache":
-                    self.server_instance.cleanup_mgr.clean_user_caches(callback=self.server_instance.broadcast_log)
-                elif action == "ssd_trim":
-                    self.server_instance.cleanup_mgr.run_ssd_trim(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.cleanup_mgr.vacuum_systemd_journal(callback=self.server_instance.broadcast_log)
+                elif action == "old_kernels":
+                    res = self.server_instance.cleanup_mgr.remove_old_kernels(callback=self.server_instance.broadcast_log)
+                elif action == "flatpak_unused":
+                    res = self.server_instance.cleanup_mgr.clean_flatpak_unused(callback=self.server_instance.broadcast_log)
+                elif action == "snap_disabled":
+                    res = self.server_instance.cleanup_mgr.clean_snap_old_revisions(callback=self.server_instance.broadcast_log)
+                elif action == "fstrim":
+                    res = self.server_instance.cleanup_mgr.run_fstrim(callback=self.server_instance.broadcast_log)
+
+                if res:
+                    self.server_instance.broadcast_task_result(f"Cleanup: {action}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
@@ -286,10 +331,13 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
             action = body.get("action")
 
             def run_job():
+                res: Optional[CommandResult] = None
                 if action == "all":
-                    self.server_instance.troubleshoot_mgr.run_all_fixes(callback=self.server_instance.broadcast_log)
+                    res_map = self.server_instance.trouble_mgr.run_all_diagnostics_and_fixes(callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result("Full Diagnostics & Fixes", {"success": True, "exit_code": 0})
                 elif fix_id:
-                    self.server_instance.troubleshoot_mgr.run_fix(fix_id, callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.trouble_mgr.run_fix(fix_id, callback=self.server_instance.broadcast_log)
+                    self.server_instance.broadcast_task_result(f"Troubleshoot: {fix_id}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
@@ -298,18 +346,22 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
             action = body.get("action")
 
             def run_job():
+                res: Optional[CommandResult] = None
                 if action == "web":
-                    self.server_instance.dev_mgr.install_web_stack(callback=self.server_instance.broadcast_log)
-                elif action == "python":
-                    self.server_instance.dev_mgr.install_python_ai_stack(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.dev_mgr.install_web_stack(callback=self.server_instance.broadcast_log)
+                elif action == "python_ai":
+                    res = self.server_instance.dev_mgr.install_python_ai_stack(callback=self.server_instance.broadcast_log)
                 elif action == "rust":
-                    self.server_instance.dev_mgr.install_rust_systems_stack(callback=self.server_instance.broadcast_log)
-                elif action == "devops":
-                    self.server_instance.dev_mgr.install_devops_stack(callback=self.server_instance.broadcast_log)
-                elif action == "cli":
-                    self.server_instance.dev_mgr.install_modern_cli_tools(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.dev_mgr.install_rust_systems_stack(callback=self.server_instance.broadcast_log)
+                elif action == "docker":
+                    res = self.server_instance.dev_mgr.install_docker_engine(callback=self.server_instance.broadcast_log)
+                elif action == "modern_cli":
+                    res = self.server_instance.dev_mgr.install_modern_cli_tools(callback=self.server_instance.broadcast_log)
                 elif action == "zsh":
-                    self.server_instance.dev_mgr.install_zsh_ohmyzsh(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.dev_mgr.install_zsh_ohmyzsh(callback=self.server_instance.broadcast_log)
+
+                if res:
+                    self.server_instance.broadcast_task_result(f"Developer Stack: {action}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
@@ -318,58 +370,51 @@ class LinForgeHandler(SimpleHTTPRequestHandler):
             action = body.get("action")
 
             def run_job():
+                res: Optional[CommandResult] = None
                 if action == "update_all":
-                    self.server_instance.maint_mgr.run_universal_update(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.maint_mgr.run_full_system_update(callback=self.server_instance.broadcast_log)
                 elif action == "snapshot":
-                    self.server_instance.maint_mgr.create_timeshift_snapshot(callback=self.server_instance.broadcast_log)
-                elif action == "dotfiles":
-                    self.server_instance.maint_mgr.backup_user_dotfiles(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.maint_mgr.create_timeshift_snapshot(callback=self.server_instance.broadcast_log)
                 elif action == "clean_kernels":
-                    self.server_instance.maint_mgr.clean_old_kernels(callback=self.server_instance.broadcast_log)
+                    res = self.server_instance.maint_mgr.clean_old_kernels(callback=self.server_instance.broadcast_log)
+
+                if res:
+                    self.server_instance.broadcast_task_result(f"Maintenance: {action}", res.to_dict())
 
             threading.Thread(target=run_job, daemon=True).start()
             self._send_json({"status": "started"})
 
         else:
-            self.send_error(404, "Endpoint Not Found")
-
-
-class ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
-    daemon_threads = True
+            self.send_error(404, "API Endpoint Not Found")
 
 
 class LinForgeServer:
-    """Embedded LinForge Web Server manager."""
+    """Embedded HTTP and SSE Web Server for the LinForge GUI."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 8990):
+    def __init__(self, host: str = "127.0.0.1", port: int = 8990, web_dir: Optional[str] = None):
         self.host = host
         self.port = port
-        self._stopping = False
-        self._listeners: List[queue.Queue] = []
-        self._listeners_lock = threading.Lock()
+        if not web_dir:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            web_dir = os.path.join(base_dir, "web")
+        self.web_dir = web_dir
 
         self.detector = SystemDetector()
-        self.monitor = SystemMonitor()
+        self.monitor = SystemMonitor(self.detector)
         self.runner = CommandRunner()
 
         self.apps_mgr = AppManager(detector=self.detector, runner=self.runner)
         self.drivers_mgr = DriverManager(detector=self.detector, runner=self.runner)
         self.tweaks_mgr = TweaksManager(detector=self.detector, runner=self.runner)
         self.cleanup_mgr = CleanupManager(detector=self.detector, runner=self.runner)
-        self.troubleshoot_mgr = TroubleshootManager(detector=self.detector, runner=self.runner)
+        self.trouble_mgr = TroubleshootManager(detector=self.detector, runner=self.runner)
         self.dev_mgr = DeveloperManager(detector=self.detector, runner=self.runner)
         self.maint_mgr = MaintenanceManager(detector=self.detector, runner=self.runner)
-        self.presets_mgr = PresetsManager(
-            detector=self.detector,
-            runner=self.runner,
-            apps_mgr=self.apps_mgr,
-            drivers_mgr=self.drivers_mgr,
-            tweaks_mgr=self.tweaks_mgr,
-            cleanup_mgr=self.cleanup_mgr,
-            dev_mgr=self.dev_mgr
-        )
+        self.presets_mgr = PresetsManager(detector=self.detector, runner=self.runner)
 
-        self.web_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+        self._listeners: List[queue.Queue] = []
+        self._listeners_lock = threading.Lock()
+        self._stopping = False
 
         LinForgeHandler.server_instance = self
         self.httpd: Optional[ThreadedHTTPServer] = None
@@ -388,6 +433,22 @@ class LinForgeServer:
         entry = {
             "type": stream_type,
             "message": message,
+            "timestamp": time.time()
+        }
+        with self._listeners_lock:
+            for q in self._listeners:
+                try:
+                    q.put_nowait(entry)
+                except Exception:
+                    pass
+
+    def broadcast_task_result(self, task_name: str, result_data: Any):
+        """Broadcasts task completion event with detailed error/success payload."""
+        payload = result_data if isinstance(result_data, dict) else (result_data.to_dict() if hasattr(result_data, "to_dict") else {"success": True})
+        entry = {
+            "type": "task_result",
+            "task_name": task_name,
+            "result": payload,
             "timestamp": time.time()
         }
         with self._listeners_lock:

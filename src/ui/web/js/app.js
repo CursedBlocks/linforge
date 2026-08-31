@@ -202,7 +202,7 @@ const LinForge = {
     this.chartInstance.update('none');
   },
 
-  // --- LIVE SSE LOG STREAMING ---
+  // --- LIVE SSE LOG STREAMING & TASK RESULTS ---
   initSSE() {
     try {
       this.sseSource = new EventSource('/api/logs/stream');
@@ -210,6 +210,12 @@ const LinForge = {
       this.sseSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+
+          if (data.type === 'task_result') {
+            this.handleTaskResult(data.task_name || 'Task', data.result || {});
+            return;
+          }
+
           if (data.message) {
             this.appendLog(data.type || 'stdout', data.message);
           }
@@ -229,6 +235,110 @@ const LinForge = {
       };
     } catch (e) {
       console.warn('SSE Connection warning:', e);
+    }
+  },
+
+  handleTaskResult(taskName, result) {
+    if (result.success) {
+      this.showToast(`${taskName} finished successfully!`, 'success');
+      // Refresh apps and system status
+      this.loadApps(true);
+      this.loadSystemData();
+    } else {
+      const code = result.error_code || `ERR_EXIT_${result.exit_code || 1}`;
+      const title = result.error_title || `${taskName} Failed`;
+      const suggestion = result.error_suggestion || 'Review the console diagnostics or retry with alternative source.';
+      const stderr = result.stderr || result.stdout || 'Process returned a non-zero exit status.';
+
+      this.showToast(`${title} (${code})`, 'error');
+
+      this.showDialog({
+        title,
+        code,
+        message: `An error occurred while executing ${taskName}. Exit code: ${result.exit_code}.`,
+        suggestion,
+        stderr,
+        status: 'error',
+        autoFixAction: (code === 'ERR_DPKG_LOCKED') ? () => this.runAction('troubleshoot', 'fix_apt_locks') : null
+      });
+    }
+  },
+
+  // --- DIAGNOSTIC ERROR & WARNING MODAL ---
+  showDialog({ title, code, message, suggestion, stderr, status = 'error', autoFixAction = null, onConfirm = null }) {
+    const modal = document.getElementById('dialog-modal');
+    const card = document.getElementById('dialog-card-inner');
+    if (!modal) return;
+
+    card.className = `modal-card dialog-card status-${status}`;
+    document.getElementById('dialog-title').textContent = title || 'Operation Notice';
+    document.getElementById('dialog-code').textContent = code || (status === 'error' ? 'ERR_FAILED' : 'INFO');
+    document.getElementById('dialog-desc').textContent = message || '';
+
+    const suggBox = document.getElementById('dialog-suggestion-container');
+    const suggEl = document.getElementById('dialog-suggestion');
+    if (suggestion) {
+      suggEl.textContent = suggestion;
+      suggBox.style.display = 'block';
+    } else {
+      suggBox.style.display = 'none';
+    }
+
+    const stderrBox = document.getElementById('dialog-stderr-container');
+    const stderrEl = document.getElementById('dialog-stderr');
+    if (stderr && stderr.trim()) {
+      stderrEl.textContent = stderr;
+      stderrBox.style.display = 'block';
+    } else {
+      stderrBox.style.display = 'none';
+    }
+
+    const footer = document.getElementById('dialog-footer-actions');
+    footer.innerHTML = '';
+
+    if (autoFixAction) {
+      const fixBtn = document.createElement('button');
+      fixBtn.className = 'btn btn-primary';
+      fixBtn.innerHTML = '<i data-lucide="wrench"></i> Auto-Fix with Troubleshooter';
+      fixBtn.onclick = () => {
+        this.closeDialog();
+        autoFixAction();
+      };
+      footer.appendChild(fixBtn);
+    }
+
+    if (onConfirm) {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'btn btn-danger';
+      confirmBtn.textContent = 'Confirm Action';
+      confirmBtn.onclick = () => {
+        this.closeDialog();
+        onConfirm();
+      };
+      footer.appendChild(confirmBtn);
+    }
+
+    const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'btn btn-secondary';
+    dismissBtn.textContent = 'Dismiss';
+    dismissBtn.onclick = () => this.closeDialog();
+    footer.appendChild(dismissBtn);
+
+    modal.classList.add('show');
+    if (window.lucide) lucide.createIcons();
+  },
+
+  closeDialog() {
+    const modal = document.getElementById('dialog-modal');
+    if (modal) modal.classList.remove('show');
+  },
+
+  copyDialogStderr() {
+    const stderrEl = document.getElementById('dialog-stderr');
+    if (stderrEl) {
+      navigator.clipboard.writeText(stderrEl.textContent).then(() => {
+        this.showToast('Diagnostic log copied!', 'success');
+      });
     }
   },
 
@@ -426,17 +536,32 @@ const LinForge = {
     document.getElementById('modal-app-category').textContent = app.category.toUpperCase();
     document.getElementById('modal-app-desc').textContent = app.description;
 
+    const pillEl = document.getElementById('modal-app-installed-pill');
+    if (pillEl) {
+      if (app.is_installed) {
+        pillEl.textContent = `✓ Installed (${app.installed_source || 'native'})`;
+        pillEl.className = 'modal-installed-badge';
+      } else {
+        pillEl.textContent = 'Not Installed';
+        pillEl.className = 'modal-installed-badge not-installed';
+      }
+    }
+
     const statusEl = document.getElementById('modal-app-status');
     if (statusEl) {
-      statusEl.textContent = app.is_installed ? 'Installed on System' : 'Not Installed';
+      statusEl.textContent = app.is_installed
+        ? `Installed via ${app.installed_source || 'system'}`
+        : 'Available for one-click installation';
       statusEl.className = app.is_installed ? 'val text-emerald' : 'val text-muted';
     }
 
     const sourceContainer = document.getElementById('modal-source-options');
+    let selectedSource = app.default_source || 'native_deb';
+
     if (sourceContainer) {
       sourceContainer.innerHTML = '';
       const sources = app.sources || {};
-      let selectedSource = app.default_source || Object.keys(sources)[0] || 'native_deb';
+      selectedSource = app.default_source || Object.keys(sources)[0] || 'native_deb';
 
       for (const srcKey of Object.keys(sources)) {
         const btn = document.createElement('button');
@@ -449,13 +574,41 @@ const LinForge = {
         };
         sourceContainer.appendChild(btn);
       }
+    }
 
-      const installBtn = document.getElementById('modal-btn-install');
-      if (installBtn) {
-        installBtn.onclick = () => {
-          this.installSingleApp(app.id, selectedSource);
+    const actionContainer = document.getElementById('modal-app-actions');
+    if (actionContainer) {
+      actionContainer.innerHTML = `
+        <button class="btn btn-secondary" onclick="LinForge.closeAppModal()">Close</button>
+      `;
+
+      if (app.is_installed) {
+        const reinstallBtn = document.createElement('button');
+        reinstallBtn.className = 'btn btn-outline';
+        reinstallBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Reinstall / Update';
+        reinstallBtn.onclick = () => {
+          this.installSingleApp(app.id, selectedSource, true);
           this.closeAppModal();
         };
+        actionContainer.appendChild(reinstallBtn);
+
+        const uninstallBtn = document.createElement('button');
+        uninstallBtn.className = 'btn btn-danger';
+        uninstallBtn.innerHTML = '<i data-lucide="trash-2"></i> Uninstall';
+        uninstallBtn.onclick = () => {
+          this.uninstallApp(app.id);
+          this.closeAppModal();
+        };
+        actionContainer.appendChild(uninstallBtn);
+      } else {
+        const installBtn = document.createElement('button');
+        installBtn.className = 'btn btn-primary';
+        installBtn.innerHTML = '<i data-lucide="download"></i> Install Now';
+        installBtn.onclick = () => {
+          this.installSingleApp(app.id, selectedSource, false);
+          this.closeAppModal();
+        };
+        actionContainer.appendChild(installBtn);
       }
     }
 
@@ -636,9 +789,10 @@ const LinForge = {
   },
 
   // --- APP STORE ---
-  async loadApps() {
+  async loadApps(forceRefresh = false) {
     try {
-      const res = await fetch('/api/apps');
+      const url = forceRefresh ? '/api/apps?refresh=true' : '/api/apps';
+      const res = await fetch(url);
       const data = await res.json();
       this.cachedApps = data.apps || [];
       this.renderAppCategories(data.categories || []);
@@ -687,13 +841,17 @@ const LinForge = {
 
     container.innerHTML = '';
     filtered.forEach(app => {
+      const isInst = Boolean(app.is_installed);
       const card = document.createElement('div');
-      card.className = `app-card ${this.selectedApps.has(app.id) ? 'selected' : ''}`;
+      card.className = `app-card ${isInst ? 'is-installed' : ''} ${this.selectedApps.has(app.id) ? 'selected' : ''}`;
       card.onclick = (e) => {
         if (e.target.tagName !== 'INPUT') {
           this.openAppModal(app.id);
         }
       };
+
+      const statusLabel = isInst ? `✓ Installed (${app.installed_source || 'native'})` : 'Available';
+      const statusClass = isInst ? 'status-installed' : 'status-uninstalled';
 
       card.innerHTML = `
         <input type="checkbox" class="app-checkbox" ${this.selectedApps.has(app.id) ? 'checked' : ''} />
@@ -704,8 +862,8 @@ const LinForge = {
           <h4>${app.name}</h4>
           <p>${app.description}</p>
         </div>
-        <span class="app-status-tag ${app.is_installed ? 'status-installed' : 'status-uninstalled'}">
-          ${app.is_installed ? 'Installed' : 'Available'}
+        <span class="app-status-tag ${statusClass}">
+          ${statusLabel}
         </span>
       `;
 
@@ -769,13 +927,13 @@ const LinForge = {
     }
   },
 
-  async installSingleApp(appId, source) {
+  async installSingleApp(appId, source, forceReinstall = false) {
     this.showToast(`Installing ${appId}...`, 'info');
     try {
       await fetch('/api/apps/install', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app_id: appId, source })
+        body: JSON.stringify({ app_id: appId, source, force_reinstall: forceReinstall })
       });
       const drawer = document.getElementById('terminal-drawer');
       if (drawer && drawer.classList.contains('collapsed')) {
@@ -783,6 +941,23 @@ const LinForge = {
       }
     } catch (e) {
       this.showToast(`Installation failed: ${e.message}`, 'error');
+    }
+  },
+
+  async uninstallApp(appId) {
+    this.showToast(`Uninstalling ${appId}...`, 'info');
+    try {
+      await fetch('/api/apps/uninstall', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app_id: appId })
+      });
+      const drawer = document.getElementById('terminal-drawer');
+      if (drawer && drawer.classList.contains('collapsed')) {
+        drawer.classList.remove('collapsed');
+      }
+    } catch (e) {
+      this.showToast(`Uninstall failed: ${e.message}`, 'error');
     }
   },
 

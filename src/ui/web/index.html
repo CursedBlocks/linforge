@@ -761,25 +761,66 @@
           </div>
           <div>
             <h3 id="modal-app-name">Application Name</h3>
-            <span class="modal-category-badge" id="modal-app-category">Category</span>
+            <div class="modal-tag-row">
+              <span class="modal-category-badge" id="modal-app-category">Category</span>
+              <span class="modal-installed-badge" id="modal-app-installed-pill">Not Installed</span>
+            </div>
           </div>
         </div>
         <div class="modal-body">
           <p id="modal-app-desc" class="modal-desc">Application description text...</p>
           <div class="modal-meta-row">
-            <span class="lbl">Installation Status:</span>
+            <span class="lbl">Installation State:</span>
             <span class="val" id="modal-app-status">Checking...</span>
           </div>
           <div class="modal-source-selector">
-            <span class="lbl">Preferred Package Source:</span>
+            <span class="lbl">Select Package Source:</span>
             <div class="source-options" id="modal-source-options"></div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" id="modal-app-actions">
           <button class="btn btn-secondary" onclick="LinForge.closeAppModal()">Close</button>
           <button class="btn btn-primary" id="modal-btn-install">
             <i data-lucide="download"></i> Install Now
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diagnostic Error, Warning & Confirmation Modal -->
+    <div class="modal-overlay" id="dialog-modal">
+      <div class="modal-card dialog-card" id="dialog-card-inner">
+        <button class="btn-modal-close" onclick="LinForge.closeDialog()">&times;</button>
+        <div class="modal-header">
+          <div class="modal-app-icon" id="dialog-icon-container">
+            <i data-lucide="alert-triangle" id="dialog-icon"></i>
+          </div>
+          <div>
+            <div class="dialog-badge-row">
+              <h3 id="dialog-title">Operation Diagnostics</h3>
+              <span class="dialog-code-pill" id="dialog-code">ERR_CODE</span>
+            </div>
+            <p class="sub" id="dialog-subtitle">System Status & Auto-Recovery</p>
+          </div>
+        </div>
+        <div class="modal-body">
+          <div class="dialog-message-box" id="dialog-desc">
+            An unexpected error occurred during execution.
+          </div>
+          <div class="dialog-suggestion-box" id="dialog-suggestion-container">
+            <div class="sugg-header"><i data-lucide="sparkles"></i> <span>Recommended Fix:</span></div>
+            <div class="sugg-text" id="dialog-suggestion">Auto-heal package manager and retry.</div>
+          </div>
+          <div class="dialog-stderr-box" id="dialog-stderr-container">
+            <div class="stderr-header">
+              <span>Terminal Diagnostics / Stderr</span>
+              <button class="btn btn-xs btn-outline" onclick="LinForge.copyDialogStderr()">Copy Log</button>
+            </div>
+            <pre class="stderr-content" id="dialog-stderr"></pre>
+          </div>
+        </div>
+        <div class="modal-footer" id="dialog-footer-actions">
+          <button class="btn btn-secondary" onclick="LinForge.closeDialog()">Dismiss</button>
         </div>
       </div>
     </div>

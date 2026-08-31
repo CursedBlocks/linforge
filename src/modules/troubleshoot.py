@@ -53,6 +53,10 @@ class TroubleshootManager:
 
         return results
 
+    def get_fixes(self) -> List[Dict[str, Any]]:
+        """Alias for get_troubleshooters."""
+        return self.get_troubleshooters()
+
     def check_issue_status(self, item: Dict[str, Any]) -> str:
         """
         Runs diagnostic check for an issue.

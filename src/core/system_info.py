@@ -15,7 +15,8 @@ from typing import Any, Dict, List, Optional
 class SystemMonitor:
     """Live telemetry reader for CPU, RAM, Disk, Network, Sensors and Battery."""
 
-    def __init__(self):
+    def __init__(self, detector: Optional[Any] = None):
+        self.detector = detector
         self._last_cpu_times = None
         self._last_net_bytes = None
         self._last_net_time = None
@@ -346,3 +347,26 @@ class SystemMonitor:
             "battery": self.get_battery_info(),
             "timestamp": time.time()
         }
+
+    def get_live_metrics(self) -> Dict[str, Any]:
+        """Alias for get_all_metrics."""
+        return self.get_all_metrics()
+
+    def get_full_summary(self) -> Dict[str, Any]:
+        """Returns consolidated system summary and initial live telemetry snapshot."""
+        try:
+            from core.detector import SystemDetector
+        except (ImportError, ValueError):
+            from .detector import SystemDetector
+
+        detector = self.detector or SystemDetector()
+        return {
+            "summary": {
+                "distro": detector.get_distro_info(),
+                "desktop": detector.get_desktop_info(),
+                "gpu": detector.get_gpu_info(),
+                "audio": detector.get_audio_subsystem()
+            },
+            "metrics": self.get_all_metrics()
+        }
+

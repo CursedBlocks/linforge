@@ -1,11 +1,13 @@
 """
-LinForge - Asynchronous Command Runner
+LinForge - Asynchronous Command Runner & Diagnostic Error Classifier
 Executes shell commands with live stdout/stderr streaming, privilege escalation
-(pkexec / sudo), user context resolution ($REAL_USER, $REAL_HOME), timeout enforcement, and cancellation control.
+(pkexec / sudo), user context resolution ($REAL_USER, $REAL_HOME), timeout enforcement,
+and intelligent error classification.
 """
 
 import os
 import queue
+import re
 import select
 import shutil
 import subprocess
@@ -15,15 +17,106 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 class CommandResult:
-    """Encapsulates the result of a finished command execution."""
+    """Encapsulates the result of a finished command execution with structured diagnostics."""
 
-    def __init__(self, exit_code: int, stdout: str, stderr: str, duration: float, cancelled: bool = False):
+    def __init__(
+        self,
+        exit_code: int,
+        stdout: str,
+        stderr: str,
+        duration: float,
+        cancelled: bool = False,
+        error_code: Optional[str] = None,
+        error_title: Optional[str] = None,
+        error_suggestion: Optional[str] = None
+    ):
         self.exit_code = exit_code
         self.stdout = stdout
         self.stderr = stderr
         self.duration = duration
         self.cancelled = cancelled
         self.success = (exit_code == 0) and not cancelled
+
+        if not self.success and not error_code:
+            code, title, sugg = self._classify_error(exit_code, stdout, stderr, cancelled)
+            self.error_code = code
+            self.error_title = title
+            self.error_suggestion = sugg
+        else:
+            self.error_code = error_code or ("SUCCESS" if self.success else "ERR_EXEC_FAILED")
+            self.error_title = error_title or ("Operation Succeeded" if self.success else "Command Failed")
+            self.error_suggestion = error_suggestion or ""
+
+    @staticmethod
+    def _classify_error(exit_code: int, stdout: str, stderr: str, cancelled: bool) -> Tuple[str, str, str]:
+        """Analyzes command outputs to provide a structured error code, title, and actionable fix."""
+        combined = f"{stdout}\n{stderr}".lower()
+
+        if cancelled:
+            return (
+                "ERR_CANCELLED",
+                "Operation Cancelled",
+                "The task was manually stopped by the user."
+            )
+
+        if "could not get lock" in combined or "unable to lock directory" in combined or "is another process using it" in combined:
+            return (
+                "ERR_DPKG_LOCKED",
+                "Package Manager Database Locked",
+                "Another package manager (like apt, unattended-upgrades, or Software Center) is currently running in the background. Use the LinForge Troubleshooter to unlock APT, or wait for the background update to finish."
+            )
+
+        if "unmet dependencies" in combined or "depends:" in combined or "dependency problems" in combined or "broken packages" in combined:
+            return (
+                "ERR_DEPENDENCY_MISSING",
+                "Unmet Package Dependencies",
+                "Required shared libraries or system packages are missing. LinForge can attempt an automatic dependency fix (`apt-get install -f -y`) or install this app via Flatpak instead."
+            )
+
+        if "libfuse.so.2" in combined or "cannot open shared object file: no such file" in combined and "fuse" in combined:
+            return (
+                "ERR_FUSE_MISSING",
+                "AppImage FUSE2 Runtime Missing",
+                "Modern Ubuntu 24.04 and Debian 12 do not pre-install libfuse2. LinForge can automatically install `libfuse2t64` / `libfuse2` to run AppImages."
+            )
+
+        if "could not resolve host" in combined or "failed to fetch" in combined or "404  not found" in combined or "network is unreachable" in combined:
+            return (
+                "ERR_NETWORK_OR_404",
+                "Download or Network Connection Failed",
+                "Could not download package archives from the remote repository. Check your internet connection or verify that the repository URL is active."
+            )
+
+        if "permission denied" in combined or "must be root" in combined or "are you root?" in combined or "sudo: a password is required" in combined:
+            return (
+                "ERR_PERMISSION_DENIED",
+                "Privilege Escalation Required",
+                "This action requires administrator (root/sudo) permissions. Please allow the authorization prompt when asked."
+            )
+
+        if "command not found" in combined or "no such file or directory" in combined:
+            missing_cmd = "A required system tool"
+            m = re.search(r"([a-zA-Z0-9_\-\.]+):\s*(?:command\s*not\s*found|No\s*such\s*file)", combined)
+            if m:
+                missing_cmd = f"Command `{m.group(1)}`"
+            return (
+                "ERR_COMMAND_NOT_FOUND",
+                f"{missing_cmd} is Not Installed",
+                "A required utility is missing from the system. LinForge will auto-install prerequisite packages."
+            )
+
+        if "no space left on device" in combined:
+            return (
+                "ERR_DISK_FULL",
+                "Disk Storage Full",
+                "Your storage drive has run out of free space. Run the LinForge System Cleaner to reclaim disk space."
+            )
+
+        return (
+            f"ERR_EXIT_{exit_code}",
+            f"Process Terminated with Error (Code {exit_code})",
+            "Review the terminal console output below for full error details."
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -32,7 +125,10 @@ class CommandResult:
             "stderr": self.stderr,
             "duration": round(self.duration, 2),
             "cancelled": self.cancelled,
-            "success": self.success
+            "success": self.success,
+            "error_code": self.error_code,
+            "error_title": self.error_title,
+            "error_suggestion": self.error_suggestion
         }
 
 
@@ -163,22 +259,28 @@ class CommandRunner:
 
             exit_code = process.returncode if process.returncode is not None else 1
             duration = time.time() - start_time
+            stdout_str = "\n".join(stdout_lines)
+            stderr_str = "\n".join(stderr_lines)
+
+            res = CommandResult(
+                exit_code=exit_code if not self._is_cancelled else -1,
+                stdout=stdout_str,
+                stderr=stderr_str,
+                duration=duration,
+                cancelled=self._is_cancelled
+            )
 
             if callback:
                 if self._is_cancelled:
                     callback("system", "⏹️ Command was cancelled by user.")
-                elif exit_code == 0:
+                elif res.success:
                     callback("system", f"✅ Completed successfully in {round(duration, 2)}s")
                 else:
-                    callback("system", f"❌ Failed with exit code {exit_code} in {round(duration, 2)}s")
+                    callback("system", f"❌ Failed [{res.error_code}]: {res.error_title} (exit code {exit_code}) in {round(duration, 2)}s")
+                    if res.error_suggestion:
+                        callback("system", f"💡 Suggestion: {res.error_suggestion}")
 
-            return CommandResult(
-                exit_code=exit_code if not self._is_cancelled else -1,
-                stdout="\n".join(stdout_lines),
-                stderr="\n".join(stderr_lines),
-                duration=duration,
-                cancelled=self._is_cancelled
-            )
+            return res
 
         except Exception as e:
             err_msg = str(e)
@@ -189,7 +291,10 @@ class CommandRunner:
                 stdout="\n".join(stdout_lines),
                 stderr=err_msg,
                 duration=time.time() - start_time,
-                cancelled=False
+                cancelled=False,
+                error_code="ERR_SUBPROCESS_EXCEPTION",
+                error_title="Subprocess Launch Failed",
+                error_suggestion="Check system resource limits or process permissions."
             )
         finally:
             with self._lock:

@@ -123,6 +123,10 @@ class SystemDetector:
             "is_x11": session_type == "x11" or session_type == "xorg"
         }
 
+    def get_desktop_info(self) -> Dict[str, str]:
+        """Alias for get_desktop_environment."""
+        return self.get_desktop_environment()
+
     def get_package_managers(self) -> Dict[str, bool]:
         """Detects available native and universal package managers."""
         return {
